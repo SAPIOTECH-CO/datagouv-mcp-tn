@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "skills": {
+    "fastmcp-client-cli": {
+      "source": "prefecthq/fastmcp",
+      "sourceType": "github",
+      "skillPath": "skills/fastmcp-client-cli/SKILL.md",
+      "computedHash": "ef06a047ab5fd88d52aa6972b274b146638ff7078cfc1b4e54aa5450212c7b32"
+    },
+    "testing-python": {
+      "source": "prefecthq/fastmcp",
+      "sourceType": "github",
+      "skillPath": ".claude/skills/python-tests/SKILL.md",
+      "computedHash": "7cf77d5efd75cef2f46857e41116d32da757ec7ead7167f56333fa7021c5fa0f"
+    }
+  }
+}

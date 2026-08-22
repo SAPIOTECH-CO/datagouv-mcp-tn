@@ -8,5 +8,10 @@ build/
 dist/
 *.egg-info/
 
+# Agent skill symlinks (skills CLI re-syncs these for other agents)
+.claude/
+.cursor/
+.agents/skills/.*/
+
 # Environment
 .env

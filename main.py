@@ -1,6 +1,4 @@
-def main():
-    print("Hello from datagouv-mcp-tn!")
-
+from datagouv_mcp_tn.server import mcp
 
 if __name__ == "__main__":
-    main()
+    mcp.run()

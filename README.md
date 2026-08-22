@@ -74,11 +74,18 @@ deactivate
 
 ```
 datagouv-mcp-tn/
-├── main.py            # entry point / server code
-├── pyproject.toml     # project metadata + dependencies
-├── uv.lock            # locked dependency versions (do not edit by hand)
-├── .python-version    # pinned Python version
-└── .venv/             # virtual environment (generated, git-ignored)
+├── src/datagouv_mcp_tn/
+│   ├── __init__.py        # exports the mcp instance
+│   ├── config.py          # Settings (pydantic-settings, reads .env)
+│   ├── client.py          # async uData API client (httpx)
+│   └── server.py          # FastMCP server + tool definitions
+├── tests/
+│   └── test_tools.py      # pytest suite (in-memory MCP client)
+├── main.py                # entry point
+├── pyproject.toml         # project metadata + dependencies
+├── uv.lock                # locked dependency versions (do not edit by hand)
+├── .env.example           # copy to .env and fill in
+└── .venv/                 # virtual environment (generated, git-ignored)
 ```
 
 Run the project:
@@ -89,6 +96,13 @@ python main.py
 
 # or without activating
 uv run python main.py
+```
+
+Run the test suite:
+
+```bash
+uv run pytest            # all tests
+uv run pytest -v         # verbose
 ```
 
 Add a new dependency:
@@ -106,7 +120,17 @@ uv lock --upgrade && uv sync
 
 ## Building the MCP server (FastMCP quick start)
 
-`main.py` currently contains a placeholder. A minimal FastMCP server looks like this:
+The server (`src/datagouv_mcp_tn/server.py`) exposes these tools against the uData API of data.gouv.tn:
+
+| Tool | Description |
+| --- | --- |
+| `search_datasets` | Free-text search over datasets |
+| `get_dataset` | Full metadata for one dataset |
+| `suggest_datasets` | Autocomplete dataset titles |
+| `search_organizations` | Search publishing organizations |
+| `get_organization` | Full metadata for one organization |
+
+A minimal FastMCP server looks like this:
 
 ```python
 from fastmcp import FastMCP
