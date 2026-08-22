@@ -1,0 +1,12 @@
+# uv / Python
+.venv/
+__pycache__/
+*.pyc
+
+# Distribution / build
+build/
+dist/
+*.egg-info/
+
+# Environment
+.env
