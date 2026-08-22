@@ -72,30 +72,70 @@ deactivate
 
 ## Using the source code
 
+Architecture follows [datagouv/datagouv-mcp](https://github.com/datagouv/datagouv-mcp) (the official data.gouv.fr MCP server): one file per tool in `tools/`, API clients and shared utilities in `helpers/`, aggregated via a single `register_tools()` call.
+
 ```
 datagouv-mcp-tn/
 ├── src/datagouv_mcp_tn/
-│   ├── __init__.py        # exports the mcp instance
-│   ├── config.py          # Settings (pydantic-settings, reads .env)
-│   ├── client.py          # async uData API client (httpx)
-│   └── server.py          # FastMCP server + tool definitions
-├── tests/
-│   └── test_tools.py      # pytest suite (in-memory MCP client)
-├── main.py                # entry point
-├── pyproject.toml         # project metadata + dependencies
-├── uv.lock                # locked dependency versions (do not edit by hand)
-├── .env.example           # copy to .env and fill in
-└── .venv/                 # virtual environment (generated, git-ignored)
+│   ├── server.py              # FastMCP instance + /health route + register_tools()
+│   ├── tools/                 # one file per tool, register_<name>_tool(mcp)
+│   │   ├── __init__.py        #   register_tools(mcp) aggregation
+│   │   ├── search_datasets.py
+│   │   ├── suggest_datasets.py
+│   │   ├── get_dataset_info.py
+│   │   ├── list_dataset_resources.py
+│   │   ├── get_resource_info.py
+│   │   ├── search_organizations.py
+│   │   └── get_organization_info.py
+│   └── helpers/
+│       ├── api_client.py      # async uData API client (httpx)
+│       ├── config.py          # Settings (pydantic-settings, reads .env)
+│       ├── logging.py         # logger + log_tool decorator
+│       └── mcp_tool_defaults.py  # READ_ONLY_EXTERNAL_API_TOOL annotations
+├── tests/test_tools.py        # pytest suite (in-memory MCP client)
+├── main.py                    # entry point (stdio by default, FASTMCP_TRANSPORT=http for HTTP)
+├── pyproject.toml             # project metadata + dependencies
+├── uv.lock                    # locked dependency versions (do not edit by hand)
+├── .env.example               # copy to .env and fill in
+└── .venv/                     # virtual environment (generated, git-ignored)
 ```
 
 Run the project:
 
 ```bash
-# with the venv activated
-python main.py
+uv run python main.py                          # stdio transport (default)
+FASTMCP_TRANSPORT=http uv run python main.py   # streamable HTTP on :8000
+FASTMCP_TRANSPORT=sse uv run python main.py    # legacy SSE on :8000
+```
 
-# or without activating
-uv run python main.py
+### Transports
+
+| Transport | Env value | Endpoint | Use case |
+| --- | --- | --- | --- |
+| **stdio** | `stdio` (default) | subprocess pipes | Local MCP clients (opencode, Claude Desktop...) launch and manage the server process |
+| **HTTP** | `http` | `http://HOST:PORT/mcp` (+ `/health`) | Production deployments, remote clients. Recommended. |
+| **SSE** | `sse` | `http://HOST:PORT/sse` | Backward compatibility only — older clients that don't support streamable HTTP |
+
+Host/port for network transports are set with `FASTMCP_HOST` and `FASTMCP_PORT`.
+
+Connecting a client:
+
+```jsonc
+// opencode / Claude Desktop style MCP config
+{
+  "mcpServers": {
+    "datagouv-tn": {
+      // local (stdio): the client launches the server itself
+      "type": "local",
+      "command": ["uv", "--directory", "/path/to/datagouv-mcp-tn", "run", "python", "main.py"]
+    },
+    "datagouv-tn-remote": {
+      // remote (streamable HTTP): start the server first with FASTMCP_TRANSPORT=http
+      "type": "remote",
+      "url": "http://127.0.0.1:8000/mcp"
+    }
+  }
+}
 ```
 
 Run the test suite:
@@ -125,10 +165,12 @@ The server (`src/datagouv_mcp_tn/server.py`) exposes these tools against the uDa
 | Tool | Description |
 | --- | --- |
 | `search_datasets` | Free-text search over datasets |
-| `get_dataset` | Full metadata for one dataset |
 | `suggest_datasets` | Autocomplete dataset titles |
+| `get_dataset_info` | Full metadata for one dataset |
+| `list_dataset_resources` | Files inside a dataset (ID, format, size, URL) |
+| `get_resource_info` | Detailed metadata for one resource |
 | `search_organizations` | Search publishing organizations |
-| `get_organization` | Full metadata for one organization |
+| `get_organization_info` | Full metadata for one organization |
 
 A minimal FastMCP server looks like this:
 
