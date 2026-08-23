@@ -304,6 +304,20 @@ docker run -p 8000:8000 datagouv-mcp-tn
 
 All logs (app + uvicorn access logs) are emitted as single-line JSON for log aggregation pipelines, configured in `src/datagouv_mcp_tn/helpers/logging_config.py`. Verbosity is controlled by `LOG_LEVEL`.
 
+## Security
+
+The server includes multiple security layers (all configurable via `.env`):
+
+| Layer | Implementation | Key Settings |
+|-------|----------------|--------------|
+| **Input validation** | FastMCP `strict_input_validation=True` + custom validators (`helpers/validators.py`) | `STRICT_INPUT_VALIDATION` |
+| **Rate limiting** | `SlidingWindowRateLimitingMiddleware` (100 req/min default) | `RATE_LIMIT_ENABLED`, `RATE_LIMIT_MAX_REQUESTS`, `RATE_LIMIT_WINDOW_MINUTES` |
+| **CORS** | Starlette `CORSMiddleware` with MCP-required headers | `CORS_ENABLED`, `CORS_ALLOWED_ORIGINS`, ... |
+| **Host/Origin protection** | FastMCP built-in DNS rebinding guard (`host_origin_protection`) | `HOST_ORIGIN_PROTECTION`, `ALLOWED_HOSTS`, `ALLOWED_ORIGINS` |
+| **Log sanitization** | Automatic masking of secrets (API keys, tokens, passwords) and PII (emails, IPs, user IDs) in all log records | `LOG_SANITIZATION_ENABLED` |
+
+All security features are **enabled by default** with production-safe values. Override via `.env` as needed.
+
 ## Git hooks
 
 [pre-commit](https://pre-commit.com) runs file hygiene checks and [ruff](https://docs.astral.sh/ruff/) lint + format:

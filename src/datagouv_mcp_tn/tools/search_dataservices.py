@@ -11,6 +11,7 @@ from datagouv_mcp_tn.helpers.i18n import (
 from datagouv_mcp_tn.helpers.logging import log_tool
 from datagouv_mcp_tn.helpers.mcp_tool_defaults import READ_ONLY_EXTERNAL_API_TOOL
 from datagouv_mcp_tn.helpers.prefab_views import dataservices_table
+from datagouv_mcp_tn.helpers.validators import validate_search_args
 from datagouv_mcp_tn.models.common import PaginationInfo
 
 
@@ -41,6 +42,7 @@ def register_search_dataservices_tool(mcp: FastMCP) -> None:
             can be passed to get_dataservice_info next.
         """
         lang = resolve_language(language)
+        query, page, page_size, lang = validate_search_args(query, page, page_size, lang)
 
         try:
             data = await api_client.search_dataservices(query, page=page, page_size=page_size)

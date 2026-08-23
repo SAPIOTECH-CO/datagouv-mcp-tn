@@ -9,6 +9,7 @@ from datagouv_mcp_tn.helpers.file_parser import fetch_resource_bytes
 from datagouv_mcp_tn.helpers.logging import log_tool
 from datagouv_mcp_tn.helpers.mcp_tool_defaults import READ_ONLY_EXTERNAL_API_TOOL
 from datagouv_mcp_tn.helpers.prefab_views import openapi_endpoints_table
+from datagouv_mcp_tn.helpers.validators import validate_openapi_args
 
 _MAX_SPEC_MB = 5  # specs are small; cap well under the download limit
 _MAX_OPERATIONS_LISTED = 25
@@ -104,6 +105,9 @@ def register_get_dataservice_openapi_spec_tool(mcp: FastMCP) -> None:
             Spec title/version, server URL, path & operation counts, and a
             list of operations. Raw YAML is not parsed; JSON specs only.
         """
+        # Validate and sanitize input
+        dataservice_id = validate_openapi_args(dataservice_id)
+
         try:
             raw = await api_client.get_dataservice_details(dataservice_id)
         except Exception as e:  # noqa: BLE001

@@ -2,8 +2,20 @@ from fastmcp import FastMCP
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
+from datagouv_mcp_tn.helpers.config import get_settings
+from datagouv_mcp_tn.helpers.cors import (
+    apply_security_to_http_app,
+    get_host_origin_protection_config,
+)
+from datagouv_mcp_tn.helpers.logging_config import configure_logging
+from datagouv_mcp_tn.helpers.rate_limit import build_rate_limit_middleware
 from datagouv_mcp_tn.tools import register_tools
 
+# Configure JSON logging with secrets/PII sanitization before anything else
+_settings = get_settings()
+configure_logging(_settings.log_level)
+
+# FastMCP with strict input validation
 mcp = FastMCP(
     "data.gouv.tn MCP server",
     instructions=(
@@ -14,9 +26,17 @@ mcp = FastMCP(
         "be analyzed in memory with download_and_parse_resource and "
         "query_resource_data."
     ),
+    strict_input_validation=_settings.strict_input_validation,
 )
 
-# Cap tool output size so large data previews cannot blow up client contexts.
+# --- Security middleware (order matters: rate limit first, then response limit) ---
+
+# Rate limiting (sliding window, 100 req/min by default)
+rate_limit_mw = build_rate_limit_middleware()
+if rate_limit_mw:
+    mcp.add_middleware(rate_limit_mw)
+
+# Response size limiting (existing)
 try:
     from fastmcp.server.middleware.response_limiting import ResponseLimitingMiddleware
 
@@ -32,15 +52,34 @@ async def health_check(request: Request) -> JSONResponse:
 
 register_tools(mcp)
 
-# Opt-in Generative UI: lets the LLM compose Prefab views at runtime.
-# Disabled by default (code-execution surface + Deno requirement); see
-# Settings.enable_generative_ui.
-from datagouv_mcp_tn.helpers.config import get_settings  # noqa: E402
-
-if get_settings().enable_generative_ui:
+# Opt-in Generative UI
+if _settings.enable_generative_ui:
     try:
         from fastmcp.apps.generative import GenerativeUI
 
         mcp.add_provider(GenerativeUI())
     except ImportError:  # pragma: no cover - fastmcp[apps] extra not installed
         pass
+
+
+# Export a pre-configured HTTP app for uvicorn/fastmcp run
+# This applies CORS + Host/Origin protection
+def _create_http_app():
+    return apply_security_to_http_app(mcp)
+
+
+# For direct uvicorn usage: uvicorn datagouv_mcp_tn.server:app
+# or: fastmcp run datagouv_mcp_tn/server.py:mcp
+app = _create_http_app()
+
+# When running via `python -m datagouv_mcp_tn.server` or `fastmcp run`,
+# the host/origin protection is applied via the `run` call.
+# Users can also call `mcp.run(...)` with the protection config:
+if __name__ == "__main__":
+    host_config = get_host_origin_protection_config()
+    mcp.run(
+        transport="http",
+        host="0.0.0.0",
+        port=8000,
+        **host_config,
+    )

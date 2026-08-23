@@ -15,6 +15,7 @@ from datagouv_mcp_tn.helpers.logging import MAIN_LOGGER_NAME, log_tool
 from datagouv_mcp_tn.helpers.mcp_tool_defaults import READ_ONLY_EXTERNAL_API_TOOL
 from datagouv_mcp_tn.helpers.prefab_views import search_results_table
 from datagouv_mcp_tn.helpers.query_cleaner import clean_search_query
+from datagouv_mcp_tn.helpers.validators import validate_search_args
 from datagouv_mcp_tn.models.common import PaginationInfo
 
 logger = logging.getLogger(MAIN_LOGGER_NAME)
@@ -51,6 +52,9 @@ def register_search_datasets_tool(mcp: FastMCP) -> None:
             be passed to get_dataset_info or list_dataset_resources next.
         """
         lang = resolve_language(language)
+
+        # Validate and sanitize all inputs
+        query, page, page_size, lang = validate_search_args(query, page, page_size, lang)
 
         cleaned_query = clean_search_query(query)
         if not cleaned_query:

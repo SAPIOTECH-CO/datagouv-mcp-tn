@@ -6,6 +6,7 @@ from datagouv_mcp_tn.helpers import api_client
 from datagouv_mcp_tn.helpers.logging import log_tool
 from datagouv_mcp_tn.helpers.mcp_tool_defaults import READ_ONLY_EXTERNAL_API_TOOL
 from datagouv_mcp_tn.helpers.prefab_views import resources_table
+from datagouv_mcp_tn.helpers.validators import validate_resource_args
 from datagouv_mcp_tn.models.dataset import Dataset
 
 
@@ -28,6 +29,9 @@ def register_list_dataset_resources_tool(mcp: FastMCP) -> None:
             Next step: use get_resource_info with a Resource ID, or fetch the
             resource URL directly.
         """
+        # Validate and sanitize input
+        dataset_id = validate_resource_args(dataset_id)
+
         try:
             raw = await api_client.get_dataset_details(dataset_id)
         except Exception as e:  # noqa: BLE001

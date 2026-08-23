@@ -1,4 +1,4 @@
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
 from fastmcp import FastMCP
 from fastmcp.tools import ToolResult
@@ -15,6 +15,7 @@ from datagouv_mcp_tn.helpers.file_parser import (
 from datagouv_mcp_tn.helpers.logging import log_tool
 from datagouv_mcp_tn.helpers.mcp_tool_defaults import READ_ONLY_EXTERNAL_API_TOOL
 from datagouv_mcp_tn.helpers.prefab_views import rows_table
+from datagouv_mcp_tn.helpers.validators import validate_query_resource_args
 from datagouv_mcp_tn.models.common import SortOrder
 
 
@@ -65,6 +66,36 @@ def register_query_resource_data_tool(mcp: FastMCP) -> None:
             Match counts plus the matching rows as a text table. Start with
             download_and_parse_resource to inspect columns first.
         """
+        # Validate and sanitize all inputs
+        (
+            dataset_id,
+            resource_id,
+            validated_columns,
+            filter_column,
+            filter_op_raw,
+            filter_value,
+            sort_by,
+            sort_order,
+            limit,
+            offset,
+        ) = validate_query_resource_args(
+            dataset_id,
+            resource_id,
+            columns,
+            filter_column,
+            filter_op,
+            filter_value,
+            sort_by,
+            sort_order,
+            limit,
+            offset,
+        )
+        columns = validated_columns  # type: ignore[assignment]
+        filter_op = cast(
+            Literal["eq", "ne", "gt", "ge", "lt", "le", "contains", "startswith"],
+            filter_op_raw,
+        )
+
         try:
             raw = await api_client.get_resource_details(dataset_id, resource_id)
             fmt = detect_format(raw)
@@ -79,6 +110,13 @@ def register_query_resource_data_tool(mcp: FastMCP) -> None:
             return f"Error: {e}"
 
         frame = result.dataframe
+
+        # Validate columns against actual dataframe schema
+        from datagouv_mcp_tn.helpers.validators import validate_against_dataframe
+
+        _, filter_column, sort_by = await validate_against_dataframe(
+            result.columns, columns, filter_column, sort_by
+        )
 
         if filter_column and filter_value is not None:
             if filter_column not in frame.columns:

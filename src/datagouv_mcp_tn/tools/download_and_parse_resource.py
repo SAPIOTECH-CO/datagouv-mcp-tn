@@ -16,6 +16,7 @@ from datagouv_mcp_tn.helpers.file_parser import (
 from datagouv_mcp_tn.helpers.logging import log_tool
 from datagouv_mcp_tn.helpers.mcp_tool_defaults import READ_ONLY_EXTERNAL_API_TOOL
 from datagouv_mcp_tn.helpers.prefab_views import rows_table
+from datagouv_mcp_tn.helpers.validators import validate_download_args
 
 _MAGIC_KINDS_NEVER_TABULAR = frozenset({"pdf", "png", "jpeg", "gif", "ole2"})
 
@@ -75,6 +76,11 @@ def register_download_and_parse_resource_tool(mcp: FastMCP) -> None:
         Returns:
             A structured summary of the file content.
         """
+        # Validate and sanitize inputs
+        dataset_id, resource_id, preview_rows = validate_download_args(
+            dataset_id, resource_id, preview_rows
+        )
+
         try:
             raw = await api_client.get_resource_details(dataset_id, resource_id)
         except Exception as e:  # noqa: BLE001

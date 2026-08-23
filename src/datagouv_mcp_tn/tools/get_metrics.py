@@ -7,6 +7,7 @@ from datagouv_mcp_tn.helpers import api_client
 from datagouv_mcp_tn.helpers.logging import log_tool
 from datagouv_mcp_tn.helpers.mcp_tool_defaults import READ_ONLY_EXTERNAL_API_TOOL
 from datagouv_mcp_tn.helpers.prefab_views import metrics_view
+from datagouv_mcp_tn.helpers.validators import validate_metrics_args
 from datagouv_mcp_tn.models.metrics import Metrics
 
 _METRICS_FIELDS = (
@@ -63,6 +64,9 @@ def register_get_metrics_tool(mcp: FastMCP) -> None:
             One line per available metric. Falls back to the embedded
             'metrics' attribute when the dedicated endpoint is unavailable.
         """
+        # Validate and sanitize inputs
+        object_type, object_id = validate_metrics_args(object_type, object_id)
+
         try:
             payload = await api_client.get_object_metrics(object_type, object_id)
         except Exception:  # noqa: BLE001 - fall back to detail payload metrics
