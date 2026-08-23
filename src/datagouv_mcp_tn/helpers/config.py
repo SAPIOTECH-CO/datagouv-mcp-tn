@@ -8,6 +8,7 @@ from datagouv_mcp_tn.portals import Portal, get_default_portal_key, get_portal
 
 class PortalSettings(BaseSettings):
     """Per-portal settings (can be overridden via env vars)."""
+
     api_url: str
     api_key: str | None = None
     request_timeout: float = 30.0
@@ -80,11 +81,19 @@ class Settings(BaseSettings):
         """Get settings for a specific portal, merging global defaults with overrides."""
         # Check for per-portal env vars (e.g., PORTAL_DATA_GOV_TN_API_KEY)
         import os
+
         prefix = f"PORTAL_{portal.key.upper().replace('-', '_')}_"
         overrides: dict[str, Any] = {}
-        for key in ("api_url", "api_key", "request_timeout", "request_max_retries",
-                    "retry_backoff_seconds", "download_timeout", "max_download_size_mb",
-                    "ssl_verify"):
+        for key in (
+            "api_url",
+            "api_key",
+            "request_timeout",
+            "request_max_retries",
+            "retry_backoff_seconds",
+            "download_timeout",
+            "max_download_size_mb",
+            "ssl_verify",
+        ):
             env_key = f"{prefix}{key.upper()}"
             if env_key in os.environ:
                 raw_val = os.environ[env_key]
@@ -109,9 +118,9 @@ class Settings(BaseSettings):
             api_key=overrides.get("api_key"),
             request_timeout=float(overrides.get("request_timeout", self.request_timeout)),
             request_max_retries=int(overrides.get("request_max_retries", self.request_max_retries)),
-            retry_backoff_seconds=float(overrides.get(
-                "retry_backoff_seconds", self.retry_backoff_seconds
-            )),
+            retry_backoff_seconds=float(
+                overrides.get("retry_backoff_seconds", self.retry_backoff_seconds)
+            ),
             download_timeout=float(overrides.get("download_timeout", self.download_timeout)),
             max_download_size_mb=int(
                 overrides.get("max_download_size_mb", self.max_download_size_mb)

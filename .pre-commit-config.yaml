@@ -41,4 +41,14 @@ repos:
           "python-pptx>=1.0.2",
           "scrapy>=2.18.0",
           "xlrd>=2.0.2",
+          "defusedxml>=0.7.1",
         ]
+
+  # https://bandit.readthedocs.io/
+  - repo: https://github.com/PyCQA/bandit
+    rev: 1.9.4
+    hooks:
+      - id: bandit
+        args: ["-r", "src/", "-f", "json", "-o", "bandit-report.json"]
+        pass_filenames: false
+        always_run: true

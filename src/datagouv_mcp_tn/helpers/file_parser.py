@@ -83,7 +83,7 @@ def decode_text_best_effort(content: bytes) -> str:
             return decoded
         if best is None or ratio < best[1]:
             best = (decoded, ratio)
-    assert best is not None
+    assert best is not None  # nosec B101
     return best[0]
 
 

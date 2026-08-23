@@ -203,18 +203,20 @@ async def get_portal_info(portal_key: str) -> str:
     else:
         lines.append("- **API key configured**: no (public access)")
 
-    lines.extend([
-        "",
-        "## Connection settings",
-        f"- Request timeout: {portal_settings.request_timeout}s",
-        f"- Max retries: {portal_settings.request_max_retries}s",
-        f"- Retry backoff: {portal_settings.retry_backoff_seconds}s",
-        f"- Download timeout: {portal_settings.download_timeout}s",
-        f"- Max download size: {portal_settings.max_download_size_mb} MB",
-        "",
-        "## Usage",
-        f"Pass `portal=\"{portal.key}\"` to any tool to target this portal.",
-    ])
+    lines.extend(
+        [
+            "",
+            "## Connection settings",
+            f"- Request timeout: {portal_settings.request_timeout}s",
+            f"- Max retries: {portal_settings.request_max_retries}s",
+            f"- Retry backoff: {portal_settings.retry_backoff_seconds}s",
+            f"- Download timeout: {portal_settings.download_timeout}s",
+            f"- Max download size: {portal_settings.max_download_size_mb} MB",
+            "",
+            "## Usage",
+            f'Pass `portal="{portal.key}"` to any tool to target this portal.',
+        ]
+    )
     return "\n".join(lines)
 
 
@@ -230,17 +232,19 @@ async def get_portals_registry() -> str:
             lines.append(f"- {p['description']}")
         lines.append("")
 
-    lines.extend([
-        "## Adding New Portals",
-        "To add a new portal, either:",
-        "1. Add a `Portal` entry to `portals.py` (code change), or",
-        "2. Set environment variables:",
-        "   - `PORTAL_<KEY>_API_URL` (required)",
-        "   - `PORTAL_<KEY>_API_KEY` (optional)",
-        "   - `PORTAL_<KEY>_REQUEST_TIMEOUT` (optional)",
-        "",
-        "## Portal Features",
-        "All portals use the CKAN platform with Action API v3.",
-        "Endpoints are consistent across portals.",
-    ])
+    lines.extend(
+        [
+            "## Adding New Portals",
+            "To add a new portal, either:",
+            "1. Add a `Portal` entry to `portals.py` (code change), or",
+            "2. Set environment variables:",
+            "   - `PORTAL_<KEY>_API_URL` (required)",
+            "   - `PORTAL_<KEY>_API_KEY` (optional)",
+            "   - `PORTAL_<KEY>_REQUEST_TIMEOUT` (optional)",
+            "",
+            "## Portal Features",
+            "All portals use the CKAN platform with Action API v3.",
+            "Endpoints are consistent across portals.",
+        ]
+    )
     return "\n".join(lines)

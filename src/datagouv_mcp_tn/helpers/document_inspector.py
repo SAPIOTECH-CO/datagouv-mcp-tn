@@ -15,9 +15,10 @@ import io
 import json
 import logging
 import re
-import xml.etree.ElementTree as ET
 import zipfile
 from typing import Any
+
+import defusedxml.ElementTree as ET
 
 from datagouv_mcp_tn.helpers.file_parser import (
     decode_text_best_effort,
@@ -79,7 +80,7 @@ def _inspect_pdf(content: bytes) -> list[str]:
     for page in reader.pages:
         try:
             text_parts.append(page.extract_text() or "")
-        except Exception:
+        except Exception:  # nosec B112
             continue
         if sum(len(part) for part in text_parts) >= TEXT_PREVIEW_CHARS:
             break

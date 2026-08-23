@@ -5,6 +5,7 @@ description = "MCP server for the Tunisian open data portal (data.gouv.tn)"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
+    "defusedxml>=0.7.1",
     "fastmcp>=3.4.7",
     "httpx>=0.28.1",
     "odfpy>=1.4.1",
@@ -19,10 +20,12 @@ dependencies = [
     "python-pptx>=1.0.2",
     "scrapy>=2.18.0",
     "xlrd>=2.0.2",
+    "defusedxml>=0.7.1",
 ]
 
 [dependency-groups]
 dev = [
+    "bandit>=1.9.4",
     "mypy>=2.3.1",
     "pytest>=9.1.1",
     "pytest-asyncio>=1.4.0",

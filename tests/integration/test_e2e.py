@@ -79,9 +79,7 @@ DATASERVICE_DETAIL = {
     "description": "Census API.",
     "base_api_url": "https://api.gouv.tn/census",
     "organization": {"name": "INS"},
-    "endpoints": [
-        {"url": "https://api.gouv.tn/census/v1", "format": "openapi"}
-    ],
+    "endpoints": [{"url": "https://api.gouv.tn/census/v1", "format": "openapi"}],
 }
 
 CSV_BYTES = b"city,score\nTunis,9\nSfax,7\nNabeul,5\n"
@@ -96,9 +94,7 @@ async def _call(mcp_client, name: str, arguments: dict) -> str:
 
 @pytest.mark.asyncio
 async def test_e2e_discover_and_drill_down(mcp_client):
-    with patch.object(
-        api_client, "search_datasets", new=AsyncMock(return_value=SEARCH_PAGE)
-    ):
+    with patch.object(api_client, "search_datasets", new=AsyncMock(return_value=SEARCH_PAGE)):
         text = await _call(mcp_client, "search_datasets", {"query": "population"})
     assert "Population" in text
     assert "Dataset ID: abc-1" in text
@@ -106,9 +102,7 @@ async def test_e2e_discover_and_drill_down(mcp_client):
     with patch.object(
         api_client, "get_dataset_details", new=AsyncMock(return_value=DATASET_DETAIL)
     ):
-        text = await _call(
-            mcp_client, "get_dataset_info", {"dataset_id": "abc-1"}
-        )
+        text = await _call(mcp_client, "get_dataset_info", {"dataset_id": "abc-1"})
     assert "Population data for Tunisia." in text
     assert "Resources: 2 file(s)" in text
     assert "list_dataset_resources" in text
@@ -116,9 +110,7 @@ async def test_e2e_discover_and_drill_down(mcp_client):
     with patch.object(
         api_client, "get_dataset_details", new=AsyncMock(return_value=DATASET_DETAIL)
     ):
-        text = await _call(
-            mcp_client, "list_dataset_resources", {"dataset_id": "abc-1"}
-        )
+        text = await _call(mcp_client, "list_dataset_resources", {"dataset_id": "abc-1"})
     assert "Total resources: 2" in text
     assert "Resource ID: res-1" in text
     assert "Format: csv" in text
@@ -140,18 +132,14 @@ async def test_e2e_organization_discovery(mcp_client):
         "search_organizations",
         new=AsyncMock(return_value={"total": 1, "data": [ORG_DETAIL]}),
     ):
-        text = await _call(
-            mcp_client, "search_organizations", {"query": "statistique"}
-        )
+        text = await _call(mcp_client, "search_organizations", {"query": "statistique"})
     assert "Institut National de la Statistique" in text
     assert "Organization ID: org-1" in text
 
     with patch.object(
         api_client, "get_organization_details", new=AsyncMock(return_value=ORG_DETAIL)
     ):
-        text = await _call(
-            mcp_client, "get_organization_info", {"organization_id": "org-1"}
-        )
+        text = await _call(mcp_client, "get_organization_info", {"organization_id": "org-1"})
     assert "Members: 12" in text
     assert "Datasets published: 45" in text
 
@@ -164,15 +152,11 @@ async def test_e2e_dataservice_discovery(mcp_client):
         "search_dataservices",
         new=AsyncMock(return_value={"total": 1, "data": [DATASERVICE_DETAIL]}),
     ):
-        text = await _call(
-            mcp_client, "search_dataservices", {"query": "census"}
-        )
+        text = await _call(mcp_client, "search_dataservices", {"query": "census"})
     assert "API recensement" in text
 
     with (
-        patch.object(
-            api_client, "get_dataservice_details", new=AsyncMock(return_value=detail)
-        ),
+        patch.object(api_client, "get_dataservice_details", new=AsyncMock(return_value=detail)),
         patch(
             "datagouv_mcp_tn.tools.get_dataservice_openapi_spec.fetch_resource_bytes",
             new=AsyncMock(
@@ -184,9 +168,7 @@ async def test_e2e_dataservice_discovery(mcp_client):
             ),
         ),
     ):
-        text = await _call(
-            mcp_client, "get_dataservice_openapi_spec", {"dataservice_id": "api-1"}
-        )
+        text = await _call(mcp_client, "get_dataservice_openapi_spec", {"dataservice_id": "api-1"})
     assert "OpenAPI spec: Census API" in text
 
 
@@ -199,39 +181,38 @@ async def test_e2e_data_analysis_workflow(mcp_client):
         "url": "https://example.com/pop.csv",
     }
     with (
-        patch.object(
-            api_client, "get_resource_details", new=AsyncMock(return_value=resource)
-        ),
+        patch.object(api_client, "get_resource_details", new=AsyncMock(return_value=resource)),
         patch(
             "datagouv_mcp_tn.tools.download_and_parse_resource.fetch_resource_bytes",
             new=AsyncMock(return_value=CSV_BYTES),
         ),
     ):
         text = await _call(
-            mcp_client, "download_and_parse_resource",
-            {"dataset_id": "abc-1", "resource_id": "res-1"}
+            mcp_client,
+            "download_and_parse_resource",
+            {"dataset_id": "abc-1", "resource_id": "res-1"},
         )
     assert "Format: CSV" in text
     assert "Rows: 3" in text
     assert "query_resource_data" in text
 
     with (
-        patch.object(
-            api_client, "get_resource_details", new=AsyncMock(return_value=resource)
-        ),
+        patch.object(api_client, "get_resource_details", new=AsyncMock(return_value=resource)),
         patch(
             "datagouv_mcp_tn.tools.query_resource_data.fetch_resource_bytes",
             new=AsyncMock(return_value=CSV_BYTES),
         ),
     ):
         text = await _call(
-            mcp_client, "query_resource_data", {
+            mcp_client,
+            "query_resource_data",
+            {
                 "dataset_id": "abc-1",
                 "resource_id": "res-1",
                 "filter_column": "city",
                 "filter_op": "contains",
                 "filter_value": "uni",
-            }
+            },
         )
     assert "Matched 1 row(s)" in text
     assert "Tunis" in text
@@ -244,27 +225,20 @@ async def test_e2e_error_handling_chain(mcp_client):
         "search_datasets",
         new=AsyncMock(side_effect=CKANError("connection refused")),
     ):
-        text = await _call(
-            mcp_client, "search_datasets", {"query": "x"}
-        )
+        text = await _call(mcp_client, "search_datasets", {"query": "x"})
     assert text.startswith("Error:")
     assert "connection refused" in text
 
-    with patch.object(
-        api_client, "get_dataset_details", new=AsyncMock(return_value={})
-    ):
-        text = await _call(
-            mcp_client, "get_dataset_info", {"dataset_id": "missing"}
-        )
+    with patch.object(api_client, "get_dataset_details", new=AsyncMock(return_value={})):
+        text = await _call(mcp_client, "get_dataset_info", {"dataset_id": "missing"})
     assert text.startswith("Error:")
 
     resource = {"id": "res-1", "title": "x", "format": "csv", "url": None}
-    with patch.object(
-        api_client, "get_resource_details", new=AsyncMock(return_value=resource)
-    ):
+    with patch.object(api_client, "get_resource_details", new=AsyncMock(return_value=resource)):
         text = await _call(
-            mcp_client, "download_and_parse_resource",
-            {"dataset_id": "abc-1", "resource_id": "res-1"}
+            mcp_client,
+            "download_and_parse_resource",
+            {"dataset_id": "abc-1", "resource_id": "res-1"},
         )
     assert text.startswith("Error:")
     assert "no downloadable URL" in text

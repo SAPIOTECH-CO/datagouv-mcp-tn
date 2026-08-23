@@ -34,6 +34,7 @@ def _portal_context(ctx: Context) -> dict[str, Any]:
 # Prompt 1: explore_portal
 # ---------------------------------------------------------------------------
 
+
 def register_explore_portal_prompt(mcp: FastMCP) -> None:
     @mcp.prompt
     async def explore_portal(ctx: Context, portal_key: str | None = None) -> str:
@@ -47,10 +48,7 @@ def register_explore_portal_prompt(mcp: FastMCP) -> None:
         key = portal_key or info["default_portal_key"]
         portal = get_portal(key)
 
-        portal_list = "\n".join(
-            f"  - {p['key']}: {p['name']}"
-            for p in info["available_portals"]
-        )
+        portal_list = "\n".join(f"  - {p['key']}: {p['name']}" for p in info["available_portals"])
 
         return (
             f"You are an open data assistant for CKAN portals.\n\n"
@@ -76,6 +74,7 @@ def register_explore_portal_prompt(mcp: FastMCP) -> None:
 # Prompt 2: search_and_analyze
 # ---------------------------------------------------------------------------
 
+
 def register_search_and_analyze_prompt(mcp: FastMCP) -> None:
     @mcp.prompt
     async def search_and_analyze(
@@ -93,11 +92,11 @@ def register_search_and_analyze_prompt(mcp: FastMCP) -> None:
         portal = get_portal(key)
 
         return (
-            f"The user wants to find and analyze data about: \"{topic}\".\n\n"
+            f'The user wants to find and analyze data about: "{topic}".\n\n'
             f"Target portal: {portal.name} (key: {portal.key})\n"
             f"API: {portal.api_url}\n\n"
             f"Follow this flow:\n"
-            f"1. Call `search_datasets` with query=\"{topic}\" and portal=\"{portal.key}\".\n"
+            f'1. Call `search_datasets` with query="{topic}" and portal="{portal.key}".\n'
             f"2. Pick the most relevant dataset from the results.\n"
             f"3. Call `get_dataset_info` with that dataset ID.\n"
             f"4. Call `list_dataset_resources` to find tabular files (CSV, XLSX, ODS, JSON).\n"
@@ -111,6 +110,7 @@ def register_search_and_analyze_prompt(mcp: FastMCP) -> None:
 # ---------------------------------------------------------------------------
 # Prompt 3: discover_portals
 # ---------------------------------------------------------------------------
+
 
 def register_discover_portals_prompt(mcp: FastMCP) -> None:
     @mcp.prompt
@@ -146,6 +146,7 @@ def register_discover_portals_prompt(mcp: FastMCP) -> None:
 # Prompt 4: analyze_resource
 # ---------------------------------------------------------------------------
 
+
 def register_analyze_resource_prompt(mcp: FastMCP) -> None:
     @mcp.prompt
     async def analyze_resource(
@@ -165,8 +166,7 @@ def register_analyze_resource_prompt(mcp: FastMCP) -> None:
         hint_section = ""
         if resource_hint:
             hint_section = (
-                f"\nResource hint provided: \"{resource_hint}\". "
-                f"Use this to narrow the search.\n"
+                f'\nResource hint provided: "{resource_hint}". Use this to narrow the search.\n'
             )
 
         return (
@@ -184,6 +184,7 @@ def register_analyze_resource_prompt(mcp: FastMCP) -> None:
 # ---------------------------------------------------------------------------
 # Prompt 5: workflow_assistant
 # ---------------------------------------------------------------------------
+
 
 def register_workflow_assistant_prompt(mcp: FastMCP) -> None:
     @mcp.prompt
@@ -222,6 +223,7 @@ def register_workflow_assistant_prompt(mcp: FastMCP) -> None:
 # ---------------------------------------------------------------------------
 # Registration
 # ---------------------------------------------------------------------------
+
 
 def register_prompts(mcp: FastMCP) -> None:
     """Register all dynamic prompt templates with the FastMCP instance."""

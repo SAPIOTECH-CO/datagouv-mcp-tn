@@ -25,15 +25,11 @@ def _make_response(json_data, status_code=200):
 @pytest.mark.asyncio
 async def test_call_action_happy_path():
     http = AsyncMock()
-    response = _make_response(
-        {"success": True, "result": {"id": "ds-1", "title": "Test"}}
-    )
+    response = _make_response({"success": True, "result": {"id": "ds-1", "title": "Test"}})
     http.get = AsyncMock(return_value=response)
     with (
         patch.object(api_client, "_http_clients", {}),
-        patch(
-            "datagouv_mcp_tn.helpers.api_client._get_client", return_value=http
-        ),
+        patch("datagouv_mcp_tn.helpers.api_client._get_client", return_value=http),
     ):
         result = await _call_action("agridata", "package_show", params={"id": "ds-1"})
     assert result["id"] == "ds-1"
@@ -42,41 +38,31 @@ async def test_call_action_happy_path():
 
 @pytest.mark.asyncio
 async def test_call_action_retries_on_server_error():
-    ok_response = _make_response(
-        {"success": True, "result": {"ok": True}}
-    )
+    ok_response = _make_response({"success": True, "result": {"ok": True}})
     error_response = MagicMock()
     error_response.status_code = 502
     error_response.text = "Bad Gateway"
     error_response.headers = {}
     error_response.raise_for_status = MagicMock(
-        side_effect=httpx.HTTPStatusError(
-            "502", request=MagicMock(), response=error_response
-        )
+        side_effect=httpx.HTTPStatusError("502", request=MagicMock(), response=error_response)
     )
 
     http = AsyncMock()
     http.get = AsyncMock(
         side_effect=[
-            httpx.HTTPStatusError(
-                "502", request=MagicMock(), response=error_response
-            ),
+            httpx.HTTPStatusError("502", request=MagicMock(), response=error_response),
             ok_response,
         ]
     )
     with (
         patch.object(api_client, "_http_clients", {}),
-        patch(
-            "datagouv_mcp_tn.helpers.api_client._get_client", return_value=http
-        ),
+        patch("datagouv_mcp_tn.helpers.api_client._get_client", return_value=http),
         patch(
             "datagouv_mcp_tn.helpers.api_client.asyncio.sleep",
             new=AsyncMock(),
         ),
     ):
-        result = await _call_action(
-            "agridata", "package_search", params={"q": "test"}
-        )
+        result = await _call_action("agridata", "package_search", params={"q": "test"})
     assert result == {"ok": True}
     assert http.get.await_count == 2
 
@@ -87,18 +73,14 @@ async def test_call_action_raises_timeout():
     http.get = AsyncMock(side_effect=httpx.ReadTimeout("timed out"))
     with (
         patch.object(api_client, "_http_clients", {}),
-        patch(
-            "datagouv_mcp_tn.helpers.api_client._get_client", return_value=http
-        ),
+        patch("datagouv_mcp_tn.helpers.api_client._get_client", return_value=http),
         patch(
             "datagouv_mcp_tn.helpers.api_client.asyncio.sleep",
             new=AsyncMock(),
         ),
     ):
         with pytest.raises(CKANTimeoutError, match="timed out"):
-            await _call_action(
-                "agridata", "package_search", params={"q": "test"}
-            )
+            await _call_action("agridata", "package_search", params={"q": "test"})
     assert http.get.await_count == 3
 
 
@@ -108,18 +90,14 @@ async def test_call_action_raises_unavailable():
     http.get = AsyncMock(side_effect=httpx.ConnectError("refused"))
     with (
         patch.object(api_client, "_http_clients", {}),
-        patch(
-            "datagouv_mcp_tn.helpers.api_client._get_client", return_value=http
-        ),
+        patch("datagouv_mcp_tn.helpers.api_client._get_client", return_value=http),
         patch(
             "datagouv_mcp_tn.helpers.api_client.asyncio.sleep",
             new=AsyncMock(),
         ),
     ):
         with pytest.raises(CKANUnavailableError, match="refused"):
-            await _call_action(
-                "agridata", "package_search", params={"q": "test"}
-            )
+            await _call_action("agridata", "package_search", params={"q": "test"})
     assert http.get.await_count == 3
 
 

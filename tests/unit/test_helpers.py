@@ -182,6 +182,7 @@ def test_retry_wait_computation(retry_after, attempt, expected):
     response.headers = {"Retry-After": retry_after} if retry_after else {}
     # Need to pass a PortalSettings-like object
     from datagouv_mcp_tn.helpers.config import PortalSettings
+
     portal_settings = PortalSettings(api_url="https://test/api/3", request_timeout=30.0)
     assert _retry_wait(response, attempt, portal_settings) == pytest.approx(expected)
 
@@ -190,9 +191,9 @@ def test_retry_wait_ignores_invalid_retry_after():
     response = MagicMock()
     response.headers = {"Retry-After": "soon"}
     from datagouv_mcp_tn.helpers.config import PortalSettings
+
     portal_settings = PortalSettings(api_url="https://test/api/3", request_timeout=30.0)
     assert _retry_wait(response, 0, portal_settings) == pytest.approx(0.5)
-
 
 
 # --- direct api_client high-level functions (TASK-010+) ---
@@ -201,17 +202,24 @@ def test_retry_wait_ignores_invalid_retry_after():
 @pytest.mark.parametrize(
     "func_name,args,expected_key",
     [
-        ("search_datasets", {"query": "q", "page": 1, "page_size": 20,
-            "portal_key": "agridata"}, "data"),
-        ("suggest_datasets", {"partial_query": "q", "size": 10,
-            "portal_key": "agridata"}, None),
+        (
+            "search_datasets",
+            {"query": "q", "page": 1, "page_size": 20, "portal_key": "agridata"},
+            "data",
+        ),
+        ("suggest_datasets", {"partial_query": "q", "size": 10, "portal_key": "agridata"}, None),
         ("get_dataset_details", {"dataset_id": "ds-1", "portal_key": "agridata"}, "id"),
-        ("get_resource_details", {"dataset_id": "ds-1", "resource_id": "res-1",
-            "portal_key": "agridata"}, "id"),
-        ("get_organization_details", {"organization_id": "org-1",
-            "portal_key": "agridata"}, "id"),
-        ("search_dataservices", {"query": "q", "page": 1, "page_size": 20,
-            "portal_key": "agridata"}, "data"),
+        (
+            "get_resource_details",
+            {"dataset_id": "ds-1", "resource_id": "res-1", "portal_key": "agridata"},
+            "id",
+        ),
+        ("get_organization_details", {"organization_id": "org-1", "portal_key": "agridata"}, "id"),
+        (
+            "search_dataservices",
+            {"query": "q", "page": 1, "page_size": 20, "portal_key": "agridata"},
+            "data",
+        ),
         ("get_dataservice_details", {"dataservice_id": "ds-1", "portal_key": "agridata"}, "id"),
         ("list_dataset_resources", {"dataset_id": "ds-1", "portal_key": "agridata"}, None),
     ],

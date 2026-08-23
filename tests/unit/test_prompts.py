@@ -31,9 +31,7 @@ async def test_discover_portals_prompt(mcp_client):
 
 @pytest.mark.asyncio
 async def test_analyze_resource_prompt(mcp_client):
-    result = await mcp_client.get_prompt(
-        "analyze_resource", {"resource_hint": "csv"}
-    )
+    result = await mcp_client.get_prompt("analyze_resource", {"resource_hint": "csv"})
     text = result.messages[0].content.text
     assert "resource" in text.lower()
 

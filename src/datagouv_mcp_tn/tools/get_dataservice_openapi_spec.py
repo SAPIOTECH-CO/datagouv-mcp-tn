@@ -96,8 +96,8 @@ def register_get_dataservice_openapi_spec_tool(mcp: FastMCP) -> None:
     )
     @log_tool
     async def get_dataservice_openapi_spec(
-    dataservice_id: str, portal: str | None = None
-) -> str | ToolResult:
+        dataservice_id: str, portal: str | None = None
+    ) -> str | ToolResult:
         """
         Fetch and summarize the OpenAPI/Swagger specification of a dataservice.
 

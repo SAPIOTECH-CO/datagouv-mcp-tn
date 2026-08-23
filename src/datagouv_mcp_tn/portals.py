@@ -169,9 +169,7 @@ def get_portal(key: str | None = None) -> Portal:
         key = _DEFAULT_PORTAL_KEY
     portal = _PORTALS_BY_KEY.get(key)
     if portal is None:
-        raise ValueError(
-            f"Unknown portal: {key}. Available: {sorted(_PORTALS_BY_KEY.keys())}"
-        )
+        raise ValueError(f"Unknown portal: {key}. Available: {sorted(_PORTALS_BY_KEY.keys())}")
     return portal
 
 

@@ -21,6 +21,7 @@ RETRYABLE_STATUS_CODES = frozenset({429, 500, 502, 503, 504})
 
 class CKANError(RuntimeError):
     """Base CKAN API error."""
+
     def __init__(self, message: str, portal_key: str | None = None):
         super().__init__(message)
         self.portal_key = portal_key
@@ -152,7 +153,11 @@ async def _call_action(
                 )
                 logger.warning(
                     "CKAN API portal=%s attempt %d/%d failed (%s); retrying in %.1fs",
-                    portal_key, attempt + 1, max_attempts, ckan_error, wait,
+                    portal_key,
+                    attempt + 1,
+                    max_attempts,
+                    ckan_error,
+                    wait,
                 )
                 await asyncio.sleep(wait)
                 continue
@@ -175,6 +180,7 @@ async def _call_action(
 
 
 # --- High-level API functions (accept optional portal_key) ---
+
 
 async def search_datasets(
     query: str,
@@ -259,7 +265,8 @@ async def search_organizations(
         },
     )
     orgs = [
-        org for org in result
+        org
+        for org in result
         if query.lower() in org.get("name", "").lower()
         or query.lower() in org.get("title", "").lower()
         or query.lower() in org.get("description", "").lower()
@@ -268,6 +275,7 @@ async def search_organizations(
     # If no results, fall back to searching datasets and extracting orgs
     if not orgs:
         import json as json_lib
+
         pkg_result = await _call_action(
             portal.key,
             "package_search",

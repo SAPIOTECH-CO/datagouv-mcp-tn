@@ -11,9 +11,7 @@ from datagouv_mcp_tn.helpers.api_client import CKANError
 
 ORG_PAGE = {
     "total": 1,
-    "data": [
-        {"id": "org-1", "name": "Institut National de la Statistique", "acronym": "INS"}
-    ],
+    "data": [{"id": "org-1", "name": "Institut National de la Statistique", "acronym": "INS"}],
 }
 
 ORG_DETAIL = {
@@ -44,9 +42,7 @@ DATASERVICE_DETAIL = {
     "description": "Census API.",
     "base_api_url": "https://api.gouv.tn/census",
     "organization": {"name": "INS"},
-    "endpoints": [
-        {"url": "https://api.gouv.tn/census/v1", "format": "openapi"}
-    ],
+    "endpoints": [{"url": "https://api.gouv.tn/census/v1", "format": "openapi"}],
 }
 
 OPENAPI_SPEC = {
@@ -74,13 +70,12 @@ async def call_tool(mcp_client):
         part = result.content[0]
         assert isinstance(part, TextContent)
         return part.text
+
     return _call
 
 
 async def test_search_organizations_formats_results(call_tool):
-    with patch.object(
-        api_client, "search_organizations", new=AsyncMock(return_value=ORG_PAGE)
-    ):
+    with patch.object(api_client, "search_organizations", new=AsyncMock(return_value=ORG_PAGE)):
         text = await call_tool("search_organizations", {"query": "statistique"})
     assert "Trouvé 1 organisation(s) pour « statistique »" in text
     assert "Institut National de la Statistique" in text
@@ -111,9 +106,7 @@ async def test_get_organization_info_handles_api_error(call_tool):
 
 
 async def test_get_organization_info_handles_missing_org(call_tool):
-    with patch.object(
-        api_client, "get_organization_details", new=AsyncMock(return_value={})
-    ):
+    with patch.object(api_client, "get_organization_details", new=AsyncMock(return_value={})):
         text = await call_tool("get_organization_info", {"organization_id": "missing"})
     assert "not found" in text
 
@@ -129,9 +122,7 @@ async def test_search_dataservices_formats_results(call_tool):
 
 async def test_search_dataservices_empty_reports_hint(call_tool):
     empty = {**DATASERVICE_PAGE, "total": 0, "data": []}
-    with patch.object(
-        api_client, "search_dataservices", new=AsyncMock(return_value=empty)
-    ):
+    with patch.object(api_client, "search_dataservices", new=AsyncMock(return_value=empty)):
         text = await call_tool("search_dataservices", {"query": "nope"})
     assert "Aucun résultat" in text
 
@@ -147,9 +138,7 @@ async def test_get_dataservice_info_shows_metadata_and_endpoints(call_tool):
 
 
 async def test_get_dataservice_info_handles_missing(call_tool):
-    with patch.object(
-        api_client, "get_dataservice_details", new=AsyncMock(return_value={})
-    ):
+    with patch.object(api_client, "get_dataservice_details", new=AsyncMock(return_value={})):
         text = await call_tool("get_dataservice_info", {"dataservice_id": "gone"})
     assert "Error: Dataservice with ID 'gone' not found" in text
 
@@ -157,9 +146,7 @@ async def test_get_dataservice_info_handles_missing(call_tool):
 async def test_openapi_spec_summarized_from_url(call_tool):
     detail = {**DATASERVICE_DETAIL, "openapi_spec_url": "https://x.tn/openapi.json"}
     with (
-        patch.object(
-            api_client, "get_dataservice_details", new=AsyncMock(return_value=detail)
-        ),
+        patch.object(api_client, "get_dataservice_details", new=AsyncMock(return_value=detail)),
         patch(
             "datagouv_mcp_tn.tools.get_dataservice_openapi_spec.fetch_resource_bytes",
             new=AsyncMock(return_value=json.dumps(OPENAPI_SPEC).encode()),
@@ -174,9 +161,7 @@ async def test_openapi_spec_summarized_from_url(call_tool):
 
 async def test_openapi_spec_inline_dict_supported(call_tool):
     detail = {**DATASERVICE_DETAIL, "openapi_spec": OPENAPI_SPEC}
-    with patch.object(
-        api_client, "get_dataservice_details", new=AsyncMock(return_value=detail)
-    ):
+    with patch.object(api_client, "get_dataservice_details", new=AsyncMock(return_value=detail)):
         text = await call_tool("get_dataservice_openapi_spec", {"dataservice_id": "api-1"})
     assert "OpenAPI spec: Census API" in text
 
@@ -186,8 +171,6 @@ async def test_openapi_spec_absent_is_reported(call_tool):
         **DATASERVICE_DETAIL,
         "endpoints": [{"url": "https://api.gouv.tn/census/v1"}],
     }
-    with patch.object(
-        api_client, "get_dataservice_details", new=AsyncMock(return_value=detail)
-    ):
+    with patch.object(api_client, "get_dataservice_details", new=AsyncMock(return_value=detail)):
         text = await call_tool("get_dataservice_openapi_spec", {"dataservice_id": "api-1"})
     assert "no OpenAPI specification found" in text

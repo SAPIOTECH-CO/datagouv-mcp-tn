@@ -24,5 +24,10 @@ EXPOSE 8000
 HEALTHCHECK --interval=60s --timeout=10s --start-period=10s --retries=3 \
     CMD curl -fsS http://localhost:8000/health || exit 1
 
+# Create non-root user and switch to it
+RUN useradd --create-home --shell /bin/bash appuser && \
+    chown -R appuser:appuser /app
+USER appuser
+
 ENTRYPOINT ["uv", "run", "--no-sync"]
 CMD ["python", "main.py"]

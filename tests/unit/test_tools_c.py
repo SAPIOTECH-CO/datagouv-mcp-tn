@@ -23,9 +23,7 @@ DATASERVICE_DETAIL = {
     "description": "Census API.",
     "base_api_url": "https://api.gouv.tn/census",
     "organization": {"name": "INS"},
-    "endpoints": [
-        {"url": "https://api.gouv.tn/census/v1", "format": "openapi"}
-    ],
+    "endpoints": [{"url": "https://api.gouv.tn/census/v1", "format": "openapi"}],
 }
 
 
@@ -36,6 +34,7 @@ async def call_tool(mcp_client):
         part = result.content[0]
         assert isinstance(part, TextContent)
         return part.text
+
     return _call
 
 
@@ -70,9 +69,7 @@ async def test_download_and_parse_inspects_non_tabular(call_tool):
         "url": "https://x.tn/a.pdf",
     }
     with (
-        patch.object(
-            api_client, "get_resource_details", new=AsyncMock(return_value=resource)
-        ),
+        patch.object(api_client, "get_resource_details", new=AsyncMock(return_value=resource)),
         patch(
             "datagouv_mcp_tn.tools.download_and_parse_resource.fetch_resource_bytes",
             new=AsyncMock(return_value=make_pdf(pages=2)),
@@ -96,9 +93,7 @@ async def test_download_and_parse_docx_hint_despite_zip_magic(call_tool):
         "url": "https://x.tn/a.docx",
     }
     with (
-        patch.object(
-            api_client, "get_resource_details", new=AsyncMock(return_value=resource)
-        ),
+        patch.object(api_client, "get_resource_details", new=AsyncMock(return_value=resource)),
         patch(
             "datagouv_mcp_tn.tools.download_and_parse_resource.fetch_resource_bytes",
             new=AsyncMock(return_value=make_docx()),
@@ -121,9 +116,7 @@ async def test_download_and_parse_tabular_fallback_to_inspector(call_tool):
         "url": "https://x.tn/a.csv",
     }
     with (
-        patch.object(
-            api_client, "get_resource_details", new=AsyncMock(return_value=resource)
-        ),
+        patch.object(api_client, "get_resource_details", new=AsyncMock(return_value=resource)),
         patch(
             "datagouv_mcp_tn.tools.download_and_parse_resource.fetch_resource_bytes",
             new=AsyncMock(return_value=make_pdf(pages=1)),
@@ -143,9 +136,7 @@ async def test_download_and_parse_tabular_without_url(call_tool):
         "format": "csv",
         "url": None,
     }
-    with patch.object(
-        api_client, "get_resource_details", new=AsyncMock(return_value=resource)
-    ):
+    with patch.object(api_client, "get_resource_details", new=AsyncMock(return_value=resource)):
         text = await call_tool(
             "download_and_parse_resource", {"dataset_id": "abc-1", "resource_id": "res-u"}
         )
@@ -161,9 +152,7 @@ async def test_download_and_parse_inspector_crash_returns_error(call_tool):
         "url": "https://x.tn/a.pdf",
     }
     with (
-        patch.object(
-            api_client, "get_resource_details", new=AsyncMock(return_value=resource)
-        ),
+        patch.object(api_client, "get_resource_details", new=AsyncMock(return_value=resource)),
         patch(
             "datagouv_mcp_tn.tools.download_and_parse_resource.fetch_resource_bytes",
             new=AsyncMock(return_value=b"%PDF-1.7 garbage \x00\xff"),
@@ -178,9 +167,7 @@ async def test_download_and_parse_inspector_crash_returns_error(call_tool):
 
 async def test_download_and_parse_api_ref_without_url(call_tool):
     resource = {"id": "res-a", "title": "API météo", "format": "api"}
-    with patch.object(
-        api_client, "get_resource_details", new=AsyncMock(return_value=resource)
-    ):
+    with patch.object(api_client, "get_resource_details", new=AsyncMock(return_value=resource)):
         text = await call_tool(
             "download_and_parse_resource", {"dataset_id": "abc-1", "resource_id": "res-a"}
         )
@@ -205,9 +192,7 @@ def mocked_csv_source():
 
 
 async def test_query_returns_all_rows(mocked_csv_source, call_tool):
-    text = await call_tool(
-        "query_resource_data", {"dataset_id": "abc-1", "resource_id": "res-x"}
-    )
+    text = await call_tool("query_resource_data", {"dataset_id": "abc-1", "resource_id": "res-x"})
     assert "Matched 3 row(s) · showing 3 row(s)" in text
     assert "Nabeul" in text
 
@@ -239,11 +224,7 @@ async def test_query_sort_desc_limit(mocked_csv_source, call_tool):
         },
     )
     assert "showing 1 row(s)" in text
-    lines = [
-        line
-        for line in text.splitlines()
-        if line.startswith(("Tunis", "Sfax", "Nabeul"))
-    ]
+    lines = [line for line in text.splitlines() if line.startswith(("Tunis", "Sfax", "Nabeul"))]
     assert lines[0].startswith("Tunis")
 
 
@@ -281,9 +262,7 @@ async def test_get_metrics_from_dedicated_endpoint(call_tool):
         "get_object_metrics",
         new=AsyncMock(return_value={"views": 120, "followers": 7}),
     ):
-        text = await call_tool(
-            "get_metrics", {"object_type": "dataset", "object_id": "abc-1"}
-        )
+        text = await call_tool("get_metrics", {"object_type": "dataset", "object_id": "abc-1"})
     assert "Views: 120" in text
     assert "Followers: 7" in text
 
@@ -301,7 +280,5 @@ async def test_get_metrics_falls_back_to_detail_payload(call_tool):
             new=AsyncMock(return_value={"metrics": {"views": 33}}),
         ),
     ):
-        text = await call_tool(
-            "get_metrics", {"object_type": "dataset", "object_id": "abc-1"}
-        )
+        text = await call_tool("get_metrics", {"object_type": "dataset", "object_id": "abc-1"})
     assert "Views: 33" in text

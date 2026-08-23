@@ -14,8 +14,8 @@ def register_get_resource_info_tool(mcp: FastMCP) -> None:
     )
     @log_tool
     async def get_resource_info(
-    dataset_id: str, resource_id: str, portal: str | None = None
-) -> str:
+        dataset_id: str, resource_id: str, portal: str | None = None
+    ) -> str:
         """
         Get detailed metadata for a single resource (file) in a dataset.
 

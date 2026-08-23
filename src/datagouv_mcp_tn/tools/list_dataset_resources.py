@@ -19,8 +19,8 @@ def register_list_dataset_resources_tool(mcp: FastMCP) -> None:
     )
     @log_tool
     async def list_dataset_resources(
-    dataset_id: str, portal: str | None = None
-) -> str | ToolResult:
+        dataset_id: str, portal: str | None = None
+    ) -> str | ToolResult:
         """
         List all resources (files) in a dataset with their metadata.
 
