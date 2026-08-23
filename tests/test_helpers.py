@@ -5,7 +5,13 @@ import pytest
 
 from datagouv_mcp_tn.helpers import api_client
 from datagouv_mcp_tn.helpers.api_client import UDataError, _get_json, _retry_wait
-from datagouv_mcp_tn.helpers.pagination import PaginationInfo
+from datagouv_mcp_tn.helpers.i18n import (
+    DEFAULT_LANGUAGE,
+    Language,
+    MessageKey,
+    resolve_language,
+    translate,
+)
 from datagouv_mcp_tn.helpers.query_cleaner import clean_search_query
 
 
@@ -17,9 +23,7 @@ def status_error(status_code: int, retry_after: str | None = None) -> httpx.HTTP
         response.headers = {"Retry-After": retry_after}
     else:
         response.headers = {}
-    return httpx.HTTPStatusError(
-        f"HTTP {status_code}", request=MagicMock(), response=response
-    )
+    return httpx.HTTPStatusError(f"HTTP {status_code}", request=MagicMock(), response=response)
 
 
 def mock_http(side_effects: list) -> AsyncMock:
@@ -50,28 +54,45 @@ def test_clean_search_query_returns_empty_when_all_generic():
     assert clean_search_query("données fichier csv") == ""
 
 
-# --- pagination (TASK-012) ---
+# --- i18n (TASK-013) ---
 
 
-def test_pagination_from_udata_reads_fields():
-    info = PaginationInfo.from_udata({"total": 231, "page": 2, "page_size": 20})
-    assert (info.page, info.page_size, info.total) == (2, 20, 231)
+@pytest.mark.parametrize(
+    "raw,expected",
+    [("fr", Language.FRENCH), ("AR", Language.ARABIC), (" en ", Language.ENGLISH)],
+)
+def test_resolve_language_normalizes(raw, expected):
+    assert resolve_language(raw) == expected
 
 
-def test_pagination_from_udapplies_defaults_for_missing_fields():
-    info = PaginationInfo.from_udata({}, default_page=3, default_page_size=50)
-    assert (info.page, info.page_size, info.total) == (3, 50, 0)
+def test_resolve_language_falls_back_to_default():
+    assert resolve_language("de") == DEFAULT_LANGUAGE
+    assert resolve_language(None) == DEFAULT_LANGUAGE
 
 
-def test_pagination_total_pages_rounds_up():
-    assert PaginationInfo(1, 20, 231).total_pages == 12
-    assert PaginationInfo(1, 20, 40).total_pages == 2
-    assert PaginationInfo(1, 20, 0).total_pages == 0
+@pytest.mark.parametrize(
+    "lang,expected",
+    [
+        (Language.FRENCH, "Trouvé 5 jeu(x) de données pour « pop »"),
+        (Language.ARABIC, "تم العثور على 5 مجموعة(ات) بيانات لـ «pop»"),
+        (Language.ENGLISH, "Found 5 dataset(s) for 'pop'"),
+    ],
+)
+def test_translate_formats_per_language(lang, expected):
+    assert (
+        translate(
+            MessageKey.RESULTS_FOUND,
+            lang,
+            count=5,
+            what=translate(MessageKey.WHAT_DATASETS, lang),
+            query="pop",
+        )
+        == expected
+    )
 
 
-def test_pagination_describe_formats_summary():
-    assert PaginationInfo(2, 20, 231).describe() == "Page 2/12 · 231 results"
-    assert PaginationInfo(1, 20, 1).describe() == "Page 1/1 · 1 result"
+def test_translate_missing_key_is_safe():
+    assert translate("nope", Language.FRENCH) == "missing translation: nope"
 
 
 # --- retries & errors (TASK-010) ---
@@ -104,7 +125,9 @@ async def test_get_json_does_not_retry_on_client_error():
 
 @pytest.mark.parametrize("status_code", [429, 500, 502, 503, 504])
 async def test_get_json_retries_retryable_statuses(status_code):
-    http = mock_http([status_error(status_code), status_error(status_code), status_error(status_code)])
+    http = mock_http(
+        [status_error(status_code), status_error(status_code), status_error(status_code)]
+    )
     with (
         patch.object(api_client, "_http", None),
         patch("datagouv_mcp_tn.helpers.api_client._client", return_value=http),

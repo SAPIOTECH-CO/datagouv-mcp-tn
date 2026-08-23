@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     request_timeout: float = 30.0
     request_max_retries: int = 2
     retry_backoff_seconds: float = 0.5
+    default_language: str = "fr"
     log_level: str = "INFO"
 
 

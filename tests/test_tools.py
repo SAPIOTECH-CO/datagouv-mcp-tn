@@ -86,16 +86,24 @@ async def call_tool(name: str, arguments: dict) -> str:
 async def test_search_datasets_formats_results_with_ids():
     with patch.object(api_client, "search_datasets", new=AsyncMock(return_value=SEARCH_PAGE)):
         text = await call_tool("search_datasets", {"query": "population"})
-    assert "Found 2 dataset(s)" in text
+    assert "Trouvé 2 jeu(x) de données pour « population »" in text
     assert "Population" in text
     assert "Dataset ID: abc-1" in text
+
+
+async def test_search_datasets_formats_results_in_english_and_arabic():
+    with patch.object(api_client, "search_datasets", new=AsyncMock(return_value=SEARCH_PAGE)):
+        english = await call_tool("search_datasets", {"query": "population", "language": "en"})
+        arabic = await call_tool("search_datasets", {"query": "population", "language": "ar"})
+    assert "Found 2 dataset(s) for 'population'" in english
+    assert "تم العثور على 2 مجموعة(ات) بيانات" in arabic
 
 
 async def test_search_datasets_reports_empty_results():
     empty = {**SEARCH_PAGE, "total": 0, "data": []}
     with patch.object(api_client, "search_datasets", new=AsyncMock(return_value=empty)):
         text = await call_tool("search_datasets", {"query": "zzz"})
-    assert "No datasets found" in text
+    assert "Aucun résultat" in text
 
 
 async def test_get_dataset_info_shows_metadata_and_next_step():
@@ -158,7 +166,7 @@ async def test_suggest_datasets_lists_titles():
 async def test_search_organizations_formats_results():
     with patch.object(api_client, "search_organizations", new=AsyncMock(return_value=ORG_PAGE)):
         text = await call_tool("search_organizations", {"query": "statistique"})
-    assert "Found 1 organization(s)" in text
+    assert "Trouvé 1 organisation(s) pour « statistique »" in text
     assert "Institut National de la Statistique" in text
     assert "Organization ID: org-1" in text
 

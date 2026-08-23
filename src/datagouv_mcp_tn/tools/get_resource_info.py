@@ -3,6 +3,7 @@ from fastmcp import FastMCP
 from datagouv_mcp_tn.helpers import api_client
 from datagouv_mcp_tn.helpers.logging import log_tool
 from datagouv_mcp_tn.helpers.mcp_tool_defaults import READ_ONLY_EXTERNAL_API_TOOL
+from datagouv_mcp_tn.models.resource import Resource
 
 
 def register_get_resource_info_tool(mcp: FastMCP) -> None:
@@ -23,23 +24,24 @@ def register_get_resource_info_tool(mcp: FastMCP) -> None:
             Title, format, size, checksum, and download URL of the file.
         """
         try:
-            resource = await api_client.get_resource_details(dataset_id, resource_id)
+            raw = await api_client.get_resource_details(dataset_id, resource_id)
+            resource = Resource.from_api(raw)
         except Exception as e:  # noqa: BLE001
             return f"Error: {e}"
 
-        lines = [f"Resource: {resource.get('title') or resource.get('name') or 'Untitled'}"]
-        lines.append(f"Resource ID: {resource['id']}")
-        if resource.get("format"):
-            lines.append(f"Format: {resource['format']}")
-        if resource.get("mime"):
-            lines.append(f"MIME type: {resource['mime']}")
-        filesize = resource.get("filesize")
-        if isinstance(filesize, int):
-            lines.append(f"Size: {filesize} bytes")
-        checksum = resource.get("checksum")
-        if isinstance(checksum, dict) and checksum.get("value"):
-            lines.append(f"Checksum ({checksum.get('type', 'sha1')}): {checksum['value']}")
-        if resource.get("url"):
-            lines.append(f"URL: {resource['url']}")
+        lines = [f"Resource: {resource.display_title}"]
+        lines.append(f"Resource ID: {resource.id}")
+        if resource.format:
+            lines.append(f"Format: {resource.format}")
+        if resource.mime:
+            lines.append(f"MIME type: {resource.mime}")
+        if size := resource.human_size:
+            raw_size = f"{resource.filesize} bytes"
+            lines.append(f"Size: {size} ({raw_size})")
+        if checksum := resource.checksum:
+            if checksum.value:
+                lines.append(f"Checksum ({checksum.type}): {checksum.value}")
+        if resource.url:
+            lines.append(f"URL: {resource.url}")
 
         return "\n".join(lines)

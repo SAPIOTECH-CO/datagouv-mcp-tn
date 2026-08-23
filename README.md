@@ -87,10 +87,20 @@ datagouv-mcp-tn/
 │   │   ├── get_resource_info.py
 │   │   ├── search_organizations.py
 │   │   └── get_organization_info.py
+│   ├── models/                 # Pydantic models for uData payloads
+│   │   ├── __init__.py         #   re-exports
+│   │   ├── common.py           #   Pagination, Sort, FieldFilter, PaginationInfo
+│   │   ├── dataset.py          #   Dataset, OrganizationRef, LicenseRef
+│   │   ├── resource.py         #   Resource, Checksum
+│   │   ├── dataservice.py      #   Dataservice, Endpoint
+│   │   └── metrics.py          #   Metrics (+ per-object subtypes)
 │   └── helpers/
-│       ├── api_client.py      # async uData API client (httpx)
-│       ├── config.py          # Settings (pydantic-settings, reads .env)
-│       ├── logging.py         # logger + log_tool decorator
+│       ├── api_client.py       # async uData API client (httpx)
+│       ├── config.py           # Settings (pydantic-settings, reads .env)
+│       ├── i18n.py             # AR/FR/EN message catalog for tool output
+│       ├── logging.py          # logger + log_tool decorator
+│       ├── logging_config.py   # structured JSON logging (uvicorn-aware)
+│       ├── query_cleaner.py    # stop-word removal for search queries (FR/AR)
 │       └── mcp_tool_defaults.py  # READ_ONLY_EXTERNAL_API_TOOL annotations
 ├── tests/
 │   └── test_tools.py          # pytest suite (in-memory MCP client)
@@ -225,6 +235,7 @@ Copy `.env.example` to `.env` and adjust. All variables are optional:
 | `REQUEST_TIMEOUT` | `30` | HTTP timeout (seconds) for portal API calls |
 | `REQUEST_MAX_RETRIES` | `2` | Retries on transient failures (timeouts, connection errors, 429/5xx) with exponential backoff and `Retry-After` support |
 | `RETRY_BACKOFF_SECONDS` | `0.5` | Base delay (seconds) for the retry backoff (`0.5s`, `1s`, `2s`...) |
+| `DEFAULT_LANGUAGE` | `fr` | Default output language for tool messages (`fr`, `ar`, or `en`); every search tool also accepts a per-call `language` argument |
 | `LOG_LEVEL` | `INFO` | Logging verbosity |
 
 ## Docker

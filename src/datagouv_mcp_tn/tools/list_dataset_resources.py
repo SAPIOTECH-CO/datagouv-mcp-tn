@@ -1,18 +1,10 @@
 from fastmcp import FastMCP
+from pydantic import ValidationError
 
 from datagouv_mcp_tn.helpers import api_client
 from datagouv_mcp_tn.helpers.logging import log_tool
 from datagouv_mcp_tn.helpers.mcp_tool_defaults import READ_ONLY_EXTERNAL_API_TOOL
-
-
-def _human_size(size: int) -> str:
-    if size < 1024:
-        return f"{size} B"
-    if size < 1024 * 1024:
-        return f"{size / 1024:.1f} KB"
-    if size < 1024 * 1024 * 1024:
-        return f"{size / (1024 * 1024):.1f} MB"
-    return f"{size / (1024 * 1024 * 1024):.1f} GB"
+from datagouv_mcp_tn.models.dataset import Dataset
 
 
 def register_list_dataset_resources_tool(mcp: FastMCP) -> None:
@@ -34,17 +26,19 @@ def register_list_dataset_resources_tool(mcp: FastMCP) -> None:
             resource URL directly.
         """
         try:
-            dataset = await api_client.get_dataset_details(dataset_id)
+            raw = await api_client.get_dataset_details(dataset_id)
         except Exception as e:  # noqa: BLE001
             return f"Error: {e}"
 
-        if not dataset.get("id"):
+        try:
+            dataset = Dataset.from_api(raw)
+        except ValidationError:
             return f"Error: Dataset with ID '{dataset_id}' not found."
 
-        resources = dataset.get("resources", [])
+        resources = dataset.resources
         lines = [
-            f"Resources in dataset: {dataset.get('title', 'Unknown')}",
-            f"Dataset ID: {dataset_id}",
+            f"Resources in dataset: {dataset.display_title}",
+            f"Dataset ID: {dataset.id}",
             f"Total resources: {len(resources)}\n",
         ]
 
@@ -53,21 +47,16 @@ def register_list_dataset_resources_tool(mcp: FastMCP) -> None:
             return "\n".join(lines)
 
         for i, resource in enumerate(resources, 1):
-            resource_id = resource.get("id")
-            if not resource_id:
-                continue
-            title = resource.get("title") or resource.get("name")
-            lines.append(f"{i}. {title or 'Untitled'}")
-            lines.append(f"   Resource ID: {resource_id}")
-            if resource.get("format"):
-                lines.append(f"   Format: {resource['format']}")
-            filesize = resource.get("filesize")
-            if isinstance(filesize, int):
-                lines.append(f"   Size: {_human_size(filesize)}")
-            if resource.get("mime"):
-                lines.append(f"   MIME type: {resource['mime']}")
-            if resource.get("url"):
-                lines.append(f"   URL: {resource['url']}")
+            lines.append(f"{i}. {resource.display_title}")
+            lines.append(f"   Resource ID: {resource.id}")
+            if resource.format:
+                lines.append(f"   Format: {resource.format}")
+            if size := resource.human_size:
+                lines.append(f"   Size: {size}")
+            if resource.mime:
+                lines.append(f"   MIME type: {resource.mime}")
+            if resource.url:
+                lines.append(f"   URL: {resource.url}")
             lines.append("")
 
         return "\n".join(lines)
