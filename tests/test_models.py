@@ -4,9 +4,9 @@ import pytest
 from pydantic import ValidationError
 
 from datagouv_mcp_tn.models import (
+    Dataservice,
     Dataset,
     DatasetMetrics,
-    Dataservice,
     FieldFilter,
     LicenseRef,
     Metrics,
@@ -128,9 +128,7 @@ def test_resource_skips_malformed_entries_in_list():
 
 
 def test_resource_coerces_loose_field_types():
-    resource = Resource.from_api(
-        {"id": "res-3", "filesize": "2048", "checksum": "abc123"}
-    )
+    resource = Resource.from_api({"id": "res-3", "filesize": "2048", "checksum": "abc123"})
     assert resource.filesize == 2048
     assert resource.checksum is not None and resource.checksum.value == "abc123"
     assert resource.checksum.type == "sha1"

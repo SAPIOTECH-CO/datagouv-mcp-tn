@@ -7,8 +7,8 @@ from datagouv_mcp_tn.models.common import (
     Sort,
     SortOrder,
 )
-from datagouv_mcp_tn.models.dataset import Dataset, LicenseRef, OrganizationRef
 from datagouv_mcp_tn.models.dataservice import Dataservice, Endpoint
+from datagouv_mcp_tn.models.dataset import Dataset, LicenseRef, OrganizationRef
 from datagouv_mcp_tn.models.metrics import (
     DatasetMetrics,
     Metrics,

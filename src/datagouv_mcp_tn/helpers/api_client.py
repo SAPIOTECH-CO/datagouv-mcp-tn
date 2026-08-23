@@ -210,6 +210,43 @@ async def search_organizations(
     )
 
 
+async def search_dataservices(
+    query: str,
+    page: int = 1,
+    page_size: int = 20,
+) -> dict[str, Any]:
+    """Search dataservices (published APIs) by keywords."""
+    return await _get_json(
+        "/dataservices/",
+        params={"q": query, "page": page, "page_size": min(page_size, 100)},
+    )
+
+
+async def get_dataservice_details(dataservice_id: str) -> dict[str, Any]:
+    """Fetch the complete dataservice payload from the API v1 endpoint."""
+    return await _get_json(f"/dataservices/{dataservice_id}/")
+
+
+METRICS_OBJECT_TYPES = {
+    "dataset": "datasets",
+    "resource": "datasets",
+    "organization": "organizations",
+    "dataservice": "dataservices",
+    "reuse": "reuses",
+}
+
+
+async def get_object_metrics(object_type: str, object_id: str) -> dict[str, Any]:
+    """Fetch metrics for a dataset/organization/dataservice/reuse."""
+    plural = METRICS_OBJECT_TYPES.get(object_type)
+    if plural is None:
+        raise ValueError(
+            f"Unsupported object type '{object_type}'. "
+            f"Supported: {', '.join(sorted(METRICS_OBJECT_TYPES))}."
+        )
+    return await _get_json(f"/{plural}/{object_id}/metrics/")
+
+
 async def get_organization_details(organization_id: str) -> dict[str, Any]:
     """Fetch the complete organization payload."""
     return await _get_json(f"/organizations/{organization_id}/")

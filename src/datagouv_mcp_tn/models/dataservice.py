@@ -8,7 +8,6 @@ from typing import Any
 from pydantic import AliasChoices, BaseModel, Field
 
 from datagouv_mcp_tn.models.dataset import OrganizationRef
-from datagouv_mcp_tn.models.metrics import Metrics
 
 
 class Endpoint(BaseModel):
@@ -23,11 +22,13 @@ class Dataservice(BaseModel):
     """A dataservice on the portal, tolerant to partial payloads."""
 
     id: str
-    title: str | None = Field(
-        default=None, validation_alias=AliasChoices("title", "name")
-    )
+    title: str | None = Field(default=None, validation_alias=AliasChoices("title", "name"))
     description: str | None = None
     base_api_url: str | None = None
+    openapi_spec_url: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("openapi_spec_url", "spec_url", "swagger_url"),
+    )
     endpoints: list[Endpoint] = []
     organization: OrganizationRef | None = None
     created_at: datetime | None = None

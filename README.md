@@ -86,7 +86,13 @@ datagouv-mcp-tn/
 │   │   ├── list_dataset_resources.py
 │   │   ├── get_resource_info.py
 │   │   ├── search_organizations.py
-│   │   └── get_organization_info.py
+│   │   ├── get_organization_info.py
+│   │   ├── search_dataservices.py
+│   │   ├── get_dataservice_info.py
+│   │   ├── get_dataservice_openapi_spec.py
+│   │   ├── download_and_parse_resource.py
+│   │   ├── query_resource_data.py
+│   │   └── get_metrics.py
 │   ├── models/                 # Pydantic models for uData payloads
 │   │   ├── __init__.py         #   re-exports
 │   │   ├── common.py           #   Pagination, Sort, FieldFilter, PaginationInfo
@@ -97,6 +103,8 @@ datagouv-mcp-tn/
 │   └── helpers/
 │       ├── api_client.py       # async uData API client (httpx)
 │       ├── config.py           # Settings (pydantic-settings, reads .env)
+│       ├── file_parser.py      # in-memory CSV/XLS/XLSX/ODS/JSON/GeoJSON parsing (pandas)
+│       ├── document_inspector.py # PDF/DOCX/PPTX/HTML(Scrapy)/XML/images/ZIP/KMZ summaries
 │       ├── i18n.py             # AR/FR/EN message catalog for tool output
 │       ├── logging.py          # logger + log_tool decorator
 │       ├── logging_config.py   # structured JSON logging (uvicorn-aware)
@@ -175,8 +183,36 @@ All tools are read-only (`readOnlyHint=True`) and query the uData API of data.go
 | `get_resource_info` | Detailed metadata for one resource |
 | `search_organizations` | Search publishing organizations |
 | `get_organization_info` | Full metadata for one organization |
+| `search_dataservices` | Search published APIs (dataservices) |
+| `get_dataservice_info` | Full metadata for one dataservice |
+| `get_dataservice_openapi_spec` | Fetch & summarize a dataservice's OpenAPI spec (JSON) |
+| `download_and_parse_resource` | Download + analyze any resource in memory: tabular preview, or PDF/DOCX/PPTX/HTML/XML/image/ZIP inspection |
+| `query_resource_data` | Filter / sort / select rows of a tabular resource without leaving the chat |
+| `get_metrics` | Usage metrics (views, followers, reuses...) for datasets/organizations/dataservices/reuses |
 
-Typical flow: `search_datasets` → `get_dataset_info` → `list_dataset_resources` → `get_resource_info`.
+Typical flows:
+
+- Metadata: `search_datasets` → `get_dataset_info` → `list_dataset_resources` → `get_resource_info`
+- Data analysis: `list_dataset_resources` → `download_and_parse_resource` → `query_resource_data`
+
+Tabular formats parsed into DataFrames: **CSV, XLS, XLSX, ODS, JSON, GeoJSON** —
+the formats actually found on data.gouv.tn (~80% of resources).
+
+Everything else is inspected instead of rejected (`document_inspector`):
+
+- **PDF** — page count, metadata, text preview
+- **DOCX / PPTX** (and legacy OLE2 detection) — paragraph/slide summaries
+- **HTML** — parsed with Scrapy selectors: title, meta description, link/table/
+  image/form counts, headings, visible-text preview (scripts/styles dropped)
+- **XML / KML** — root element, placemark counts for geographic data
+- **SVG / PNG / JPEG / GIF** — dimensions, mode, frame count
+- **ZIP / KMZ** — entry listing with sizes; tabular members flagged; KMZ
+  placemark count extracted from the inner KML
+- **TXT & unknown payloads** — line/char counts, delimiter sniffing,
+  magic-byte-based format guesses
+
+Format hints from the portal are unreliable (`word`, `test`, `.JPG`, ...), so
+detection combines normalized extensions with magic-byte sniffing.
 
 ## Adding a new tool
 
@@ -235,6 +271,8 @@ Copy `.env.example` to `.env` and adjust. All variables are optional:
 | `REQUEST_TIMEOUT` | `30` | HTTP timeout (seconds) for portal API calls |
 | `REQUEST_MAX_RETRIES` | `2` | Retries on transient failures (timeouts, connection errors, 429/5xx) with exponential backoff and `Retry-After` support |
 | `RETRY_BACKOFF_SECONDS` | `0.5` | Base delay (seconds) for the retry backoff (`0.5s`, `1s`, `2s`...) |
+| `MAX_DOWNLOAD_SIZE_MB` | `50` | Download cap for resource files used by the data tools |
+| `DOWNLOAD_TIMEOUT` | `120` | Timeout (seconds) for resource downloads |
 | `DEFAULT_LANGUAGE` | `fr` | Default output language for tool messages (`fr`, `ar`, or `en`); every search tool also accepts a per-call `language` argument |
 | `LOG_LEVEL` | `INFO` | Logging verbosity |
 

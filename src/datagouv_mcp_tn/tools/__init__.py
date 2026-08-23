@@ -1,6 +1,14 @@
 from fastmcp import FastMCP
 
+from datagouv_mcp_tn.tools.download_and_parse_resource import (
+    register_download_and_parse_resource_tool,
+)
+from datagouv_mcp_tn.tools.get_dataservice_info import register_get_dataservice_info_tool
+from datagouv_mcp_tn.tools.get_dataservice_openapi_spec import (
+    register_get_dataservice_openapi_spec_tool,
+)
 from datagouv_mcp_tn.tools.get_dataset_info import register_get_dataset_info_tool
+from datagouv_mcp_tn.tools.get_metrics import register_get_metrics_tool
 from datagouv_mcp_tn.tools.get_organization_info import (
     register_get_organization_info_tool,
 )
@@ -8,6 +16,8 @@ from datagouv_mcp_tn.tools.get_resource_info import register_get_resource_info_t
 from datagouv_mcp_tn.tools.list_dataset_resources import (
     register_list_dataset_resources_tool,
 )
+from datagouv_mcp_tn.tools.query_resource_data import register_query_resource_data_tool
+from datagouv_mcp_tn.tools.search_dataservices import register_search_dataservices_tool
 from datagouv_mcp_tn.tools.search_datasets import register_search_datasets_tool
 from datagouv_mcp_tn.tools.search_organizations import (
     register_search_organizations_tool,
@@ -24,3 +34,9 @@ def register_tools(mcp: FastMCP) -> None:
     register_get_resource_info_tool(mcp)
     register_search_organizations_tool(mcp)
     register_get_organization_info_tool(mcp)
+    register_search_dataservices_tool(mcp)
+    register_get_dataservice_info_tool(mcp)
+    register_get_dataservice_openapi_spec_tool(mcp)
+    register_download_and_parse_resource_tool(mcp)
+    register_query_resource_data_tool(mcp)
+    register_get_metrics_tool(mcp)

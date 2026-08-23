@@ -8,7 +8,7 @@ describes the pagination metadata returned by uData list endpoints.
 from __future__ import annotations
 
 import math
-from enum import Enum
+from enum import StrEnum
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field
@@ -16,7 +16,7 @@ from pydantic import BaseModel, Field
 _ARABIC_RESULT_UNITS = {"one": "نتيجة", "many": "نتائج"}
 
 
-class SortOrder(str, Enum):
+class SortOrder(StrEnum):
     ASCENDING = "asc"
     DESCENDING = "desc"
 

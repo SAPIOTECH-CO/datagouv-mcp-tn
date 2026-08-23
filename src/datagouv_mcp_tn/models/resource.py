@@ -33,9 +33,7 @@ class Resource(BaseModel):
     """
 
     id: str
-    title: str | None = Field(
-        default=None, validation_alias=AliasChoices("title", "name")
-    )
+    title: str | None = Field(default=None, validation_alias=AliasChoices("title", "name"))
     description: str | None = None
     format: str | None = None
     mime: str | None = None

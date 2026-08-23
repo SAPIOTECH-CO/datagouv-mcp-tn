@@ -10,14 +10,14 @@ through :func:`resolve_language`, falling back to the portal's default
 from __future__ import annotations
 
 import logging
-from enum import Enum
+from enum import StrEnum
 
 from datagouv_mcp_tn.helpers.config import get_settings
 
 logger = logging.getLogger(__name__)
 
 
-class Language(str, Enum):
+class Language(StrEnum):
     FRENCH = "fr"
     ARABIC = "ar"
     ENGLISH = "en"
@@ -26,7 +26,7 @@ class Language(str, Enum):
 DEFAULT_LANGUAGE = Language.FRENCH
 
 
-class MessageKey(str, Enum):
+class MessageKey(StrEnum):
     RESULTS_FOUND = "results_found"
     NO_RESULTS = "no_results"
     GENERIC_QUERY_ERROR = "generic_query_error"
@@ -34,6 +34,7 @@ class MessageKey(str, Enum):
     NO_SUGGESTIONS = "no_suggestions"
     WHAT_DATASETS = "what_datasets"
     WHAT_ORGANIZATIONS = "what_organizations"
+    WHAT_DATASERVICES = "what_dataservices"
     PAGINATION_LINE = "pagination_line"
 
 
@@ -44,9 +45,7 @@ _MESSAGES: dict[str, dict[Language, str]] = {
         Language.ENGLISH: "Found {count} {what} for '{query}'",
     },
     MessageKey.NO_RESULTS: {
-        Language.FRENCH: (
-            "Aucun résultat. Essayez des mots-clés plus courts ou plus précis."
-        ),
+        Language.FRENCH: ("Aucun résultat. Essayez des mots-clés plus courts ou plus précis."),
         Language.ARABIC: "لا توجد نتائج. جرّب كلمات مفتاحية أقصر أو أدق.",
         Language.ENGLISH: "No results found. Try shorter or more specific keywords.",
     },
@@ -56,8 +55,7 @@ _MESSAGES: dict[str, dict[Language, str]] = {
             "(les mots génériques comme « données », « fichier », « csv » sont ignorés)."
         ),
         Language.ARABIC: (
-            "الطلب لا يحتوي على كلمات ذات معنى "
-            "(الكلمات العامة مثل «بيانات» و«ملف» يتم تجاهلها)."
+            "الطلب لا يحتوي على كلمات ذات معنى (الكلمات العامة مثل «بيانات» و«ملف» يتم تجاهلها)."
         ),
         Language.ENGLISH: (
             "Query has no meaningful keywords "
@@ -83,6 +81,11 @@ _MESSAGES: dict[str, dict[Language, str]] = {
         Language.FRENCH: "organisation(s)",
         Language.ARABIC: "منظمة(ات)",
         Language.ENGLISH: "organization(s)",
+    },
+    MessageKey.WHAT_DATASERVICES: {
+        Language.FRENCH: "service(s) de données",
+        Language.ARABIC: "خدمة(ات) بيانات",
+        Language.ENGLISH: "dataservice(s)",
     },
     MessageKey.PAGINATION_LINE: {
         # {pages} may be empty when total is unknown; templates tolerate it.
