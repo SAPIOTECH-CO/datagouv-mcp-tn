@@ -2,6 +2,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastmcp import Client
+from mcp.types import TextContent
 
 from datagouv_mcp_tn.helpers import api_client
 from datagouv_mcp_tn.helpers.api_client import UDataError
@@ -77,7 +78,9 @@ ORG_PAGE = {
 async def call_tool(name: str, arguments: dict) -> str:
     async with Client(mcp) as client:
         result = await client.call_tool(name, arguments)
-    return result.content[0].text
+    part = result.content[0]
+    assert isinstance(part, TextContent)
+    return part.text
 
 
 async def test_search_datasets_formats_results_with_ids():

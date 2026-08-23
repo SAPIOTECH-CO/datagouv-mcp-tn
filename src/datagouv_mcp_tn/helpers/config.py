@@ -13,6 +13,8 @@ class Settings(BaseSettings):
     data_gouv_tn_api_url: str = "https://data.gouv.tn/api/1"
     data_gouv_tn_api_key: str | None = None
     request_timeout: float = 30.0
+    request_max_retries: int = 2
+    retry_backoff_seconds: float = 0.5
     log_level: str = "INFO"
 
 

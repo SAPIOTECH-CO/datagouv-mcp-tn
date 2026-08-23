@@ -5,6 +5,8 @@ from fastmcp import FastMCP
 from datagouv_mcp_tn.helpers import api_client
 from datagouv_mcp_tn.helpers.logging import MAIN_LOGGER_NAME, log_tool
 from datagouv_mcp_tn.helpers.mcp_tool_defaults import READ_ONLY_EXTERNAL_API_TOOL
+from datagouv_mcp_tn.helpers.pagination import PaginationInfo
+from datagouv_mcp_tn.helpers.query_cleaner import clean_search_query
 
 logger = logging.getLogger(MAIN_LOGGER_NAME)
 
@@ -36,18 +38,23 @@ def register_search_datasets_tool(mcp: FastMCP) -> None:
             A formatted list of matching datasets with their IDs so they can
             be passed to get_dataset_info or list_dataset_resources next.
         """
+        cleaned_query = clean_search_query(query)
+        if not cleaned_query:
+            return (
+                f"Error: the query '{query}' only contains generic words "
+                "(e.g. 'données', 'fichier'). Add specific keywords."
+            )
+
         try:
-            data = await api_client.search_datasets(query, page=page, page_size=page_size)
+            data = await api_client.search_datasets(cleaned_query, page=page, page_size=page_size)
         except Exception as e:  # noqa: BLE001
             return f"Error: {e}"
 
         results = data.get("data", [])
-        total = data.get("total", len(results))
+        pagination = PaginationInfo.from_udata(data, default_page=page, default_page_size=page_size)
         lines = [
-            f"Found {total} dataset(s) matching '{query}'",
-            "Page {} of results (page size {})".format(
-                data.get("page", page), data.get("page_size", page_size)
-            ),
+            f"Found {pagination.total} dataset(s) matching '{cleaned_query}'",
+            pagination.describe(),
             "",
         ]
 

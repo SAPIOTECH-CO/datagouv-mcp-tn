@@ -223,6 +223,8 @@ Copy `.env.example` to `.env` and adjust. All variables are optional:
 | `FASTMCP_HOST` | `127.0.0.1` | Bind host for `http` / `sse` transports |
 | `FASTMCP_PORT` | `8000` | Bind port for `http` / `sse` transports |
 | `REQUEST_TIMEOUT` | `30` | HTTP timeout (seconds) for portal API calls |
+| `REQUEST_MAX_RETRIES` | `2` | Retries on transient failures (timeouts, connection errors, 429/5xx) with exponential backoff and `Retry-After` support |
+| `RETRY_BACKOFF_SECONDS` | `0.5` | Base delay (seconds) for the retry backoff (`0.5s`, `1s`, `2s`...) |
 | `LOG_LEVEL` | `INFO` | Logging verbosity |
 
 ## Docker

@@ -3,6 +3,7 @@ from fastmcp import FastMCP
 from datagouv_mcp_tn.helpers import api_client
 from datagouv_mcp_tn.helpers.logging import log_tool
 from datagouv_mcp_tn.helpers.mcp_tool_defaults import READ_ONLY_EXTERNAL_API_TOOL
+from datagouv_mcp_tn.helpers.pagination import PaginationInfo
 
 
 def register_search_organizations_tool(mcp: FastMCP) -> None:
@@ -30,8 +31,12 @@ def register_search_organizations_tool(mcp: FastMCP) -> None:
             return f"Error: {e}"
 
         results = data.get("data", [])
-        total = data.get("total", len(results))
-        lines = [f"Found {total} organization(s) matching '{query}'", ""]
+        pagination = PaginationInfo.from_udata(data, default_page=page, default_page_size=page_size)
+        lines = [
+            f"Found {pagination.total} organization(s) matching '{query}'",
+            pagination.describe(),
+            "",
+        ]
 
         if not results:
             lines.append("No organizations found. Try shorter or more specific keywords.")
