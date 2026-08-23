@@ -31,3 +31,16 @@ async def health_check(request: Request) -> JSONResponse:
 
 
 register_tools(mcp)
+
+# Opt-in Generative UI: lets the LLM compose Prefab views at runtime.
+# Disabled by default (code-execution surface + Deno requirement); see
+# Settings.enable_generative_ui.
+from datagouv_mcp_tn.helpers.config import get_settings  # noqa: E402
+
+if get_settings().enable_generative_ui:
+    try:
+        from fastmcp.apps.generative import GenerativeUI
+
+        mcp.add_provider(GenerativeUI())
+    except ImportError:  # pragma: no cover - fastmcp[apps] extra not installed
+        pass

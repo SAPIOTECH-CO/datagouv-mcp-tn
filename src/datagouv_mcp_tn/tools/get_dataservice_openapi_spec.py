@@ -2,11 +2,13 @@ import json
 from typing import Any
 
 from fastmcp import FastMCP
+from fastmcp.tools import ToolResult
 
 from datagouv_mcp_tn.helpers import api_client
 from datagouv_mcp_tn.helpers.file_parser import fetch_resource_bytes
 from datagouv_mcp_tn.helpers.logging import log_tool
 from datagouv_mcp_tn.helpers.mcp_tool_defaults import READ_ONLY_EXTERNAL_API_TOOL
+from datagouv_mcp_tn.helpers.prefab_views import openapi_endpoints_table
 
 _MAX_SPEC_MB = 5  # specs are small; cap well under the download limit
 _MAX_OPERATIONS_LISTED = 25
@@ -88,9 +90,10 @@ def register_get_dataservice_openapi_spec_tool(mcp: FastMCP) -> None:
     @mcp.tool(
         title="Get dataservice OpenAPI spec",
         annotations=READ_ONLY_EXTERNAL_API_TOOL,
+        app=True,
     )
     @log_tool
-    async def get_dataservice_openapi_spec(dataservice_id: str) -> str:
+    async def get_dataservice_openapi_spec(dataservice_id: str) -> str | ToolResult:
         """
         Fetch and summarize the OpenAPI/Swagger specification of a dataservice.
 
@@ -130,4 +133,5 @@ def register_get_dataservice_openapi_spec_tool(mcp: FastMCP) -> None:
             except Exception as e:  # noqa: BLE001
                 return f"Error: failed to download the OpenAPI spec from {spec_url}: {e}"
 
-        return "\n".join(_summarize_spec(spec))
+        text = "\n".join(_summarize_spec(spec))
+        return ToolResult(content=text, structured_content=openapi_endpoints_table(spec))

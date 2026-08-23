@@ -1,9 +1,11 @@
 from fastmcp import FastMCP
+from fastmcp.tools import ToolResult
 from pydantic import ValidationError
 
 from datagouv_mcp_tn.helpers import api_client
 from datagouv_mcp_tn.helpers.logging import log_tool
 from datagouv_mcp_tn.helpers.mcp_tool_defaults import READ_ONLY_EXTERNAL_API_TOOL
+from datagouv_mcp_tn.helpers.prefab_views import resources_table
 from datagouv_mcp_tn.models.dataset import Dataset
 
 
@@ -11,9 +13,10 @@ def register_list_dataset_resources_tool(mcp: FastMCP) -> None:
     @mcp.tool(
         title="List dataset resources",
         annotations=READ_ONLY_EXTERNAL_API_TOOL,
+        app=True,
     )
     @log_tool
-    async def list_dataset_resources(dataset_id: str) -> str:
+    async def list_dataset_resources(dataset_id: str) -> str | ToolResult:
         """
         List all resources (files) in a dataset with their metadata.
 
@@ -59,4 +62,4 @@ def register_list_dataset_resources_tool(mcp: FastMCP) -> None:
                 lines.append(f"   URL: {resource.url}")
             lines.append("")
 
-        return "\n".join(lines)
+        return ToolResult(content="\n".join(lines), structured_content=resources_table(resources))

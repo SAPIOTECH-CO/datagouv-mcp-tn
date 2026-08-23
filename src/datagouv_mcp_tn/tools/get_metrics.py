@@ -1,10 +1,12 @@
 from typing import Any, Literal
 
 from fastmcp import FastMCP
+from fastmcp.tools import ToolResult
 
 from datagouv_mcp_tn.helpers import api_client
 from datagouv_mcp_tn.helpers.logging import log_tool
 from datagouv_mcp_tn.helpers.mcp_tool_defaults import READ_ONLY_EXTERNAL_API_TOOL
+from datagouv_mcp_tn.helpers.prefab_views import metrics_view
 from datagouv_mcp_tn.models.metrics import Metrics
 
 _METRICS_FIELDS = (
@@ -16,13 +18,16 @@ _METRICS_FIELDS = (
 )
 
 
-def _render_metrics(payload: dict[str, Any]) -> str:
+def _collect_metrics(payload: dict[str, Any]) -> tuple[str, dict[str, Any]]:
+    """Return (text rendering, numeric values map) for a metrics payload."""
     metrics = Metrics.from_api(payload)
     lines: list[str] = []
+    values: dict[str, Any] = {}
     for name in _METRICS_FIELDS:
         value = getattr(metrics, name, None) or payload.get(name)
         if value is not None:
             lines.append(f"{name.capitalize()}: {value}")
+            values[name] = value
     extras = {
         key: value
         for key, value in sorted((metrics.model_extra or {}).items())
@@ -30,21 +35,23 @@ def _render_metrics(payload: dict[str, Any]) -> str:
     }
     for key, value in extras.items():
         lines.append(f"{key.replace('_', ' ').capitalize()}: {value}")
+        values[key] = value
     if len(lines) <= 1:
         lines.append("No numeric metrics recorded for this object yet.")
-    return "\n".join(lines)
+    return "\n".join(lines), values
 
 
 def register_get_metrics_tool(mcp: FastMCP) -> None:
     @mcp.tool(
         title="Get metrics",
         annotations=READ_ONLY_EXTERNAL_API_TOOL,
+        app=True,
     )
     @log_tool
     async def get_metrics(
         object_type: Literal["dataset", "organization", "dataservice", "reuse"],
         object_id: str,
-    ) -> str:
+    ) -> str | ToolResult:
         """
         Get usage metrics (views, followers, reuses...) for a portal object.
 
@@ -79,4 +86,8 @@ def register_get_metrics_tool(mcp: FastMCP) -> None:
                 return "Error: unexpected metrics payload from the portal."
 
         header = f"Metrics for {object_type} '{object_id}':"
-        return "\n".join([header, _render_metrics(payload)])
+        text, values = _collect_metrics(payload)
+        return ToolResult(
+            content="\n".join([header, text]),
+            structured_content=metrics_view(object_type, object_id, values),
+        )

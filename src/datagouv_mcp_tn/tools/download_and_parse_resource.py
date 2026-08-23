@@ -1,4 +1,5 @@
 from fastmcp import FastMCP
+from fastmcp.tools import ToolResult
 
 from datagouv_mcp_tn.helpers import api_client
 from datagouv_mcp_tn.helpers.document_inspector import inspect_non_tabular, sniff_kind
@@ -14,6 +15,7 @@ from datagouv_mcp_tn.helpers.file_parser import (
 )
 from datagouv_mcp_tn.helpers.logging import log_tool
 from datagouv_mcp_tn.helpers.mcp_tool_defaults import READ_ONLY_EXTERNAL_API_TOOL
+from datagouv_mcp_tn.helpers.prefab_views import rows_table
 
 _MAGIC_KINDS_NEVER_TABULAR = frozenset({"pdf", "png", "jpeg", "gif", "ole2"})
 
@@ -46,13 +48,14 @@ def register_download_and_parse_resource_tool(mcp: FastMCP) -> None:
     @mcp.tool(
         title="Download and parse resource",
         annotations=READ_ONLY_EXTERNAL_API_TOOL,
+        app=True,
     )
     @log_tool
     async def download_and_parse_resource(
         dataset_id: str,
         resource_id: str,
         preview_rows: int = PREVIEW_ROWS,
-    ) -> str:
+    ) -> str | ToolResult:
         """
         Download any resource from data.gouv.tn and analyze it in memory.
 
@@ -93,7 +96,9 @@ def register_download_and_parse_resource_tool(mcp: FastMCP) -> None:
         return _render_inspection(raw, resource_id, kind, lines, len(content))
 
 
-async def _summarize_tabular(raw: dict, resource_id: str, fmt: str, preview_rows: int) -> str:
+async def _summarize_tabular(
+    raw: dict, resource_id: str, fmt: str, preview_rows: int
+) -> str | ToolResult:
     url = raw.get("url")
     if not url:
         return f"Error: this resource is detected as {fmt.upper()} but has no downloadable URL."
@@ -126,7 +131,11 @@ async def _summarize_tabular(raw: dict, resource_id: str, fmt: str, preview_rows
     lines.append(render_table(result.dataframe, shown))
     lines.append("")
     lines.append("Next step: use query_resource_data to filter, sort or select columns.")
-    return "\n".join(lines)
+    text = "\n".join(lines)
+
+    preview_rows_data = result.dataframe.head(shown).to_dict(orient="records")
+    view = rows_table(result.columns, preview_rows_data)
+    return ToolResult(content=text, structured_content=view)
 
 
 def _inspect_fallback(

@@ -2,6 +2,7 @@ import logging
 from typing import Any
 
 from fastmcp import FastMCP
+from fastmcp.tools import ToolResult
 
 from datagouv_mcp_tn.helpers import api_client
 from datagouv_mcp_tn.helpers.i18n import (
@@ -12,6 +13,7 @@ from datagouv_mcp_tn.helpers.i18n import (
 )
 from datagouv_mcp_tn.helpers.logging import MAIN_LOGGER_NAME, log_tool
 from datagouv_mcp_tn.helpers.mcp_tool_defaults import READ_ONLY_EXTERNAL_API_TOOL
+from datagouv_mcp_tn.helpers.prefab_views import search_results_table
 from datagouv_mcp_tn.helpers.query_cleaner import clean_search_query
 from datagouv_mcp_tn.models.common import PaginationInfo
 
@@ -22,6 +24,7 @@ def register_search_datasets_tool(mcp: FastMCP) -> None:
     @mcp.tool(
         title="Search datasets",
         annotations=READ_ONLY_EXTERNAL_API_TOOL,
+        app=True,
     )
     @log_tool
     async def search_datasets(
@@ -29,7 +32,7 @@ def register_search_datasets_tool(mcp: FastMCP) -> None:
         page: int = 1,
         page_size: int = 20,
         language: Language | None = None,
-    ) -> str:
+    ) -> str | ToolResult:
         """
         Search for datasets on data.gouv.tn by keywords.
 
@@ -87,4 +90,6 @@ def register_search_datasets_tool(mcp: FastMCP) -> None:
                     description = description[:197] + "..."
                 lines.append(f"   Description: {description}")
 
-        return "\n".join(lines)
+        return ToolResult(
+            content="\n".join(lines), structured_content=search_results_table(results)
+        )

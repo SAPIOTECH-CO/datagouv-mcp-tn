@@ -1,6 +1,7 @@
 from typing import Any, Literal
 
 from fastmcp import FastMCP
+from fastmcp.tools import ToolResult
 
 from datagouv_mcp_tn.helpers import api_client
 from datagouv_mcp_tn.helpers.file_parser import (
@@ -13,6 +14,7 @@ from datagouv_mcp_tn.helpers.file_parser import (
 )
 from datagouv_mcp_tn.helpers.logging import log_tool
 from datagouv_mcp_tn.helpers.mcp_tool_defaults import READ_ONLY_EXTERNAL_API_TOOL
+from datagouv_mcp_tn.helpers.prefab_views import rows_table
 from datagouv_mcp_tn.models.common import SortOrder
 
 
@@ -29,6 +31,7 @@ def register_query_resource_data_tool(mcp: FastMCP) -> None:
     @mcp.tool(
         title="Query resource data",
         annotations=READ_ONLY_EXTERNAL_API_TOOL,
+        app=True,
     )
     @log_tool
     async def query_resource_data(
@@ -42,7 +45,7 @@ def register_query_resource_data_tool(mcp: FastMCP) -> None:
         sort_order: SortOrder = SortOrder.ASCENDING,
         limit: int = 20,
         offset: int = 0,
-    ) -> str:
+    ) -> str | ToolResult:
         """
         Query rows of a tabular resource (CSV, XLSX, JSON, GeoJSON) in memory.
 
@@ -149,4 +152,8 @@ def register_query_resource_data_tool(mcp: FastMCP) -> None:
         lines.append(render_table(page, limit_clamped))
         lines.append("")
         lines.append(f"Source: {result.n_rows} total row(s) · {result.format.upper()}")
-        return "\n".join(lines)
+        text = "\n".join(lines)
+
+        preview_rows = page.head(limit_clamped).to_dict(orient="records")
+        view = rows_table(result.columns, preview_rows)
+        return ToolResult(content=text, structured_content=view)

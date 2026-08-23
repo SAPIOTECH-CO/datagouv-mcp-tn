@@ -19,6 +19,10 @@ class Settings(BaseSettings):
     max_download_size_mb: int = 50
     default_language: str = "fr"
     log_level: str = "INFO"
+    # Opt-in: registers the Generative UI provider (generate_prefab_ui),
+    # which executes LLM-written Prefab code in a Pyodide sandbox and needs
+    # Deno on the host for server-side validation. Off by default.
+    enable_generative_ui: bool = False
 
 
 @lru_cache

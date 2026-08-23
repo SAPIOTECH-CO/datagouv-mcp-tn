@@ -190,6 +190,12 @@ All tools are read-only (`readOnlyHint=True`) and query the uData API of data.go
 | `query_resource_data` | Filter / sort / select rows of a tabular resource without leaving the chat |
 | `get_metrics` | Usage metrics (views, followers, reuses...) for datasets/organizations/dataservices/reuses |
 
+Rich rendering (FastMCP Prefab apps): `search_datasets`, `list_dataset_resources`
+and `get_metrics` additionally return an interactive **structured view** — a
+sortable/searchable `DataTable` for results and files, metric cards + bar chart
+for metrics. The text output is unchanged; clients without UI support simply
+ignore the extra channel (`helpers/prefab_views.py`).
+
 Typical flows:
 
 - Metadata: `search_datasets` → `get_dataset_info` → `list_dataset_resources` → `get_resource_info`
@@ -274,6 +280,7 @@ Copy `.env.example` to `.env` and adjust. All variables are optional:
 | `MAX_DOWNLOAD_SIZE_MB` | `50` | Download cap for resource files used by the data tools |
 | `DOWNLOAD_TIMEOUT` | `120` | Timeout (seconds) for resource downloads |
 | `DEFAULT_LANGUAGE` | `fr` | Default output language for tool messages (`fr`, `ar`, or `en`); every search tool also accepts a per-call `language` argument |
+| `ENABLE_GENERATIVE_UI` | `false` | Opt-in Generative UI provider: the LLM composes Prefab views at runtime in a Pyodide sandbox (needs Deno on the host). Adds 2 tools when enabled |
 | `LOG_LEVEL` | `INFO` | Logging verbosity |
 
 ## Docker

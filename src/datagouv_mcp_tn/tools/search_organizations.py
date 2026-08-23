@@ -1,4 +1,5 @@
 from fastmcp import FastMCP
+from fastmcp.tools import ToolResult
 
 from datagouv_mcp_tn.helpers import api_client
 from datagouv_mcp_tn.helpers.i18n import (
@@ -9,6 +10,7 @@ from datagouv_mcp_tn.helpers.i18n import (
 )
 from datagouv_mcp_tn.helpers.logging import log_tool
 from datagouv_mcp_tn.helpers.mcp_tool_defaults import READ_ONLY_EXTERNAL_API_TOOL
+from datagouv_mcp_tn.helpers.prefab_views import organizations_table
 from datagouv_mcp_tn.models.common import PaginationInfo
 
 
@@ -16,6 +18,7 @@ def register_search_organizations_tool(mcp: FastMCP) -> None:
     @mcp.tool(
         title="Search organizations",
         annotations=READ_ONLY_EXTERNAL_API_TOOL,
+        app=True,
     )
     @log_tool
     async def search_organizations(
@@ -23,7 +26,7 @@ def register_search_organizations_tool(mcp: FastMCP) -> None:
         page: int = 1,
         page_size: int = 20,
         language: Language | None = None,
-    ) -> str:
+    ) -> str | ToolResult:
         """
         Search for publishing organizations (ministries, agencies...) on data.gouv.tn.
 
@@ -71,4 +74,4 @@ def register_search_organizations_tool(mcp: FastMCP) -> None:
                 lines.append(f"   Acronym: {org['acronym']}")
             lines.append("")
 
-        return "\n".join(lines)
+        return ToolResult(content="\n".join(lines), structured_content=organizations_table(results))
