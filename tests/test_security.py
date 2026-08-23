@@ -1,14 +1,15 @@
 """Tests for rate limiting, CORS, host/origin protection, and log sanitization."""
 
-import json
 import logging
-from unittest.mock import AsyncMock, patch
-
-import pytest
+from unittest.mock import patch
 
 from datagouv_mcp_tn.helpers.config import Settings
 from datagouv_mcp_tn.helpers.cors import build_cors_middleware, get_host_origin_protection_config
-from datagouv_mcp_tn.helpers.logging_config import _SecretsAndPIIFilter, _sanitize_text, configure_logging
+from datagouv_mcp_tn.helpers.logging_config import (
+    _sanitize_text,
+    _SecretsAndPIIFilter,
+    configure_logging,
+)
 from datagouv_mcp_tn.helpers.rate_limit import build_rate_limit_middleware
 
 
@@ -92,7 +93,7 @@ class TestHostOriginProtection:
 
 class TestLogSanitization:
     def test_sanitize_text_bearer_token(self):
-        text = 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9'
+        text = "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9"
         result = _sanitize_text(text)
         assert "Bearer ***" in result
         assert "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9" not in result

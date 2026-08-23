@@ -2,8 +2,6 @@
 
 from unittest.mock import AsyncMock, patch
 
-from fastmcp import Client
-
 from datagouv_mcp_tn.helpers import api_client
 from datagouv_mcp_tn.helpers.prefab_views import (
     metrics_view,
@@ -11,7 +9,6 @@ from datagouv_mcp_tn.helpers.prefab_views import (
     search_results_table,
 )
 from datagouv_mcp_tn.models.dataset import Resource
-from datagouv_mcp_tn.server import mcp
 
 
 def test_search_results_table_builds():
@@ -48,30 +45,28 @@ def _text_of(result) -> str:
     return str(getattr(part, "text", ""))
 
 
-async def test_search_datasets_returns_tool_result():
+async def test_search_datasets_returns_tool_result(mcp_client):
     page = {
         "data": [{"id": "d1", "title": "Dataset Un", "description": "Desc"}],
         "total": 1,
         "page": 1,
         "page_size": 20,
     }
-    async with Client(mcp) as client:
-        with patch.object(api_client, "search_datasets", new=AsyncMock(return_value=page)):
-            result = await client.call_tool("search_datasets", {"query": "recensement"})
+    with patch.object(api_client, "search_datasets", new=AsyncMock(return_value=page)):
+        result = await mcp_client.call_tool("search_datasets", {"query": "recensement"})
     assert "Dataset Un" in _text_of(result)
     # structured_content carries the Prefab view alongside the text
     assert result.structured_content is not None
 
 
-async def test_get_metrics_returns_tool_result():
-    async with Client(mcp) as client:
-        with patch.object(
-            api_client,
-            "get_object_metrics",
-            new=AsyncMock(return_value={"views": 100, "followers": 4}),
-        ):
-            result = await client.call_tool(
-                "get_metrics", {"object_type": "dataset", "object_id": "d-9"}
-            )
+async def test_get_metrics_returns_tool_result(mcp_client):
+    with patch.object(
+        api_client,
+        "get_object_metrics",
+        new=AsyncMock(return_value={"views": 100, "followers": 4}),
+    ):
+        result = await mcp_client.call_tool(
+            "get_metrics", {"object_type": "dataset", "object_id": "d-9"}
+        )
     assert "Views: 100" in _text_of(result)
     assert result.structured_content is not None

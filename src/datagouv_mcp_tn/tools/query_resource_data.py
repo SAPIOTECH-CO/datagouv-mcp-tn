@@ -114,9 +114,12 @@ def register_query_resource_data_tool(mcp: FastMCP) -> None:
         # Validate columns against actual dataframe schema
         from datagouv_mcp_tn.helpers.validators import validate_against_dataframe
 
-        _, filter_column, sort_by = await validate_against_dataframe(
-            result.columns, columns, filter_column, sort_by
-        )
+        try:
+            _, filter_column, sort_by = await validate_against_dataframe(
+                result.columns, columns, filter_column, sort_by
+            )
+        except ValueError as e:
+            return f"Error: {e}"
 
         if filter_column and filter_value is not None:
             if filter_column not in frame.columns:

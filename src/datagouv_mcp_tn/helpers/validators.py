@@ -9,7 +9,7 @@ validators raise ValueError with a clear message; tools catch and return
 from __future__ import annotations
 
 import re
-from typing import Any, Literal, cast
+from typing import Literal, cast
 
 from datagouv_mcp_tn.helpers.i18n import Language
 from datagouv_mcp_tn.models.common import SortOrder
@@ -71,9 +71,7 @@ def validate_id(value: str, field: str = "ID") -> str:
     if len(v) > _MAX_ID_LEN:
         raise ValueError(f"{field} too long (max {_MAX_ID_LEN} characters)")
     if not _ID_RE.fullmatch(v):
-        raise ValueError(
-            f"Invalid {field} format: only alphanumeric, hyphen, underscore allowed"
-        )
+        raise ValueError(f"Invalid {field} format: only alphanumeric, hyphen, underscore allowed")
     return v
 
 
@@ -84,8 +82,7 @@ def validate_slug(value: str, field: str = "slug") -> str:
     v = value.strip().lower()
     if not _SLUG_RE.fullmatch(v):
         raise ValueError(
-            f"Invalid {field}: only lowercase letters, digits, hyphens; "
-            "no leading/trailing hyphen"
+            f"Invalid {field}: only lowercase letters, digits, hyphens; no leading/trailing hyphen"
         )
     return v
 
@@ -137,9 +134,7 @@ def validate_columns(columns: str | None, available: list[str] | None = None) ->
     return requested
 
 
-def validate_filter_column(
-    column: str | None, available: list[str] | None = None
-) -> str | None:
+def validate_filter_column(column: str | None, available: list[str] | None = None) -> str | None:
     """Validate a filter column name."""
     if not column:
         return None
@@ -259,7 +254,9 @@ def validate_query_resource_args(
     sort_order: SortOrder,
     limit: int,
     offset: int,
-) -> tuple[str, str, list[str] | None, str | None, str, str | None, str | None, SortOrder, int, int]:
+) -> tuple[
+    str, str, list[str] | None, str | None, str, str | None, str | None, SortOrder, int, int
+]:
     """Validate all query_resource_data arguments."""
     return (
         validate_id(dataset_id, "Dataset ID"),

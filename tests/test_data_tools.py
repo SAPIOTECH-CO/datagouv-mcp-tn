@@ -2,11 +2,9 @@ import json
 from unittest.mock import AsyncMock, patch
 
 import pytest
-from fastmcp import Client
 
 from datagouv_mcp_tn.helpers import api_client
 from datagouv_mcp_tn.helpers.api_client import UDataError
-from datagouv_mcp_tn.server import mcp
 
 CSV_BYTES = b"city,score\nTunis,9\nSfax,7\nNabeul,5\n"
 
@@ -53,18 +51,23 @@ OPENAPI_SPEC = {
 }
 
 
-async def call_tool(name: str, arguments: dict) -> str:
-    async with Client(mcp) as client:
-        result = await client.call_tool(name, arguments)
-    part = result.content[0]
-    assert part.type == "text"
-    return part.text
+@pytest.fixture
+async def call_tool(mcp_client):
+    """Helper to call a tool and return its text content."""
+
+    async def _call(name: str, arguments: dict) -> str:
+        result = await mcp_client.call_tool(name, arguments)
+        part = result.content[0]
+        assert part.type == "text"
+        return part.text
+
+    return _call
 
 
 # --- TASK-020: search_dataservices ---
 
 
-async def test_search_dataservices_formats_results():
+async def test_search_dataservices_formats_results(call_tool):
     with patch.object(
         api_client, "search_dataservices", new=AsyncMock(return_value=DATASERVICE_PAGE)
     ):
@@ -73,7 +76,7 @@ async def test_search_dataservices_formats_results():
     assert "Dataservice ID: api-1" in text
 
 
-async def test_search_dataservices_empty_reports_hint():
+async def test_search_dataservices_empty_reports_hint(call_tool):
     empty = {**DATASERVICE_PAGE, "total": 0, "data": []}
     with patch.object(api_client, "search_dataservices", new=AsyncMock(return_value=empty)):
         text = await call_tool("search_dataservices", {"query": "nope"})
@@ -83,7 +86,7 @@ async def test_search_dataservices_empty_reports_hint():
 # --- TASK-024: get_dataservice_info ---
 
 
-async def test_get_dataservice_info_shows_metadata_and_endpoints():
+async def test_get_dataservice_info_shows_metadata_and_endpoints(call_tool):
     with patch.object(
         api_client, "get_dataservice_details", new=AsyncMock(return_value=DATASERVICE_DETAIL)
     ):
@@ -93,7 +96,7 @@ async def test_get_dataservice_info_shows_metadata_and_endpoints():
     assert "Organization: INS" in text
 
 
-async def test_get_dataservice_info_handles_missing():
+async def test_get_dataservice_info_handles_missing(call_tool):
     with patch.object(api_client, "get_dataservice_details", new=AsyncMock(return_value={})):
         text = await call_tool("get_dataservice_info", {"dataservice_id": "gone"})
     assert text.startswith("Error: Dataservice with ID 'gone' not found.")
@@ -102,7 +105,7 @@ async def test_get_dataservice_info_handles_missing():
 # --- TASK-025: get_dataservice_openapi_spec ---
 
 
-async def test_openapi_spec_summarized_from_url():
+async def test_openapi_spec_summarized_from_url(call_tool):
     detail = {**DATASERVICE_DETAIL, "openapi_spec_url": "https://x.tn/openapi.json"}
     with (
         patch.object(api_client, "get_dataservice_details", new=AsyncMock(return_value=detail)),
@@ -118,14 +121,14 @@ async def test_openapi_spec_summarized_from_url():
     assert "GET /communes — List communes" in text
 
 
-async def test_openapi_spec_inline_dict_supported():
+async def test_openapi_spec_inline_dict_supported(call_tool):
     detail = {**DATASERVICE_DETAIL, "openapi_spec": OPENAPI_SPEC}
     with patch.object(api_client, "get_dataservice_details", new=AsyncMock(return_value=detail)):
         text = await call_tool("get_dataservice_openapi_spec", {"dataservice_id": "api-1"})
     assert "OpenAPI spec: Census API" in text
 
 
-async def test_openapi_spec_absent_is_reported():
+async def test_openapi_spec_absent_is_reported(call_tool):
     detail = {**DATASERVICE_DETAIL, "endpoints": [{"url": "https://api.gouv.tn/census/v1"}]}
     with patch.object(api_client, "get_dataservice_details", new=AsyncMock(return_value=detail)):
         text = await call_tool("get_dataservice_openapi_spec", {"dataservice_id": "api-1"})
@@ -135,7 +138,7 @@ async def test_openapi_spec_absent_is_reported():
 # --- TASK-027: download_and_parse_resource ---
 
 
-async def test_download_and_parse_csv_shows_preview():
+async def test_download_and_parse_csv_shows_preview(call_tool):
     with (
         patch.object(
             api_client,
@@ -156,7 +159,7 @@ async def test_download_and_parse_csv_shows_preview():
     assert "query_resource_data" in text
 
 
-async def test_download_and_parse_inspects_non_tabular():
+async def test_download_and_parse_inspects_non_tabular(call_tool):
     from _factories import make_pdf
 
     resource = {"id": "res-p", "title": "Rapport", "format": "pdf", "url": "https://x.tn/a.pdf"}
@@ -175,7 +178,7 @@ async def test_download_and_parse_inspects_non_tabular():
     assert "not tabular" in text
 
 
-async def test_download_and_parse_docx_hint_despite_zip_magic():
+async def test_download_and_parse_docx_hint_despite_zip_magic(call_tool):
     from _factories import make_docx
 
     resource = {"id": "res-d", "title": "Note", "format": "docx", "url": "https://x.tn/a.docx"}
@@ -193,7 +196,7 @@ async def test_download_and_parse_docx_hint_despite_zip_magic():
     assert "Paragraphs:" in text
 
 
-async def test_download_and_parse_tabular_fallback_to_inspector():
+async def test_download_and_parse_tabular_fallback_to_inspector(call_tool):
     """A resource announced as CSV whose body is actually a PDF gets inspected."""
     from _factories import make_pdf
 
@@ -212,7 +215,7 @@ async def test_download_and_parse_tabular_fallback_to_inspector():
     assert "is not one" in text
 
 
-async def test_download_and_parse_tabular_without_url():
+async def test_download_and_parse_tabular_without_url(call_tool):
     resource = {"id": "res-u", "title": "Sans URL", "format": "csv", "url": None}
     with patch.object(api_client, "get_resource_details", new=AsyncMock(return_value=resource)):
         text = await call_tool(
@@ -222,7 +225,7 @@ async def test_download_and_parse_tabular_without_url():
     assert "no downloadable URL" in text
 
 
-async def test_download_and_parse_inspector_crash_returns_error():
+async def test_download_and_parse_inspector_crash_returns_error(call_tool):
     """Malformed non-tabular payloads surface as an Error string, never a raise."""
     resource = {
         "id": "res-c",
@@ -244,7 +247,7 @@ async def test_download_and_parse_inspector_crash_returns_error():
     assert "could not inspect" in text
 
 
-async def test_download_and_parse_api_ref_without_url():
+async def test_download_and_parse_api_ref_without_url(call_tool):
     resource = {"id": "res-a", "title": "API météo", "format": "api"}
     with patch.object(api_client, "get_resource_details", new=AsyncMock(return_value=resource)):
         text = await call_tool(
@@ -273,13 +276,13 @@ def mocked_csv_source():
         yield
 
 
-async def test_query_returns_all_rows(mocked_csv_source):
+async def test_query_returns_all_rows(mocked_csv_source, call_tool):
     text = await call_tool("query_resource_data", {"dataset_id": "abc-1", "resource_id": "res-x"})
     assert "Matched 3 row(s) · showing 3 row(s)" in text
     assert "Nabeul" in text
 
 
-async def test_query_filter_contains(mocked_csv_source):
+async def test_query_filter_contains(mocked_csv_source, call_tool):
     text = await call_tool(
         "query_resource_data",
         {
@@ -294,7 +297,7 @@ async def test_query_filter_contains(mocked_csv_source):
     assert "Tunis" in text and "Sfax" not in text
 
 
-async def test_query_sort_desc_limit(mocked_csv_source):
+async def test_query_sort_desc_limit(mocked_csv_source, call_tool):
     text = await call_tool(
         "query_resource_data",
         {
@@ -310,7 +313,7 @@ async def test_query_sort_desc_limit(mocked_csv_source):
     assert lines[0].startswith("Tunis")
 
 
-async def test_query_numeric_filter_and_offset(mocked_csv_source):
+async def test_query_numeric_filter_and_offset(mocked_csv_source, call_tool):
     text = await call_tool(
         "query_resource_data",
         {
@@ -326,7 +329,7 @@ async def test_query_numeric_filter_and_offset(mocked_csv_source):
     assert "Matched 2 row(s) · showing 1 row(s)" in text
 
 
-async def test_query_unknown_column_error(mocked_csv_source):
+async def test_query_unknown_column_error(mocked_csv_source, call_tool):
     text = await call_tool(
         "query_resource_data",
         {
@@ -335,13 +338,13 @@ async def test_query_unknown_column_error(mocked_csv_source):
             "columns": "nope",
         },
     )
-    assert "unknown column(s): nope" in text
+    assert "unknown column" in text.lower() and "nope" in text
 
 
 # --- TASK-028: get_metrics ---
 
 
-async def test_get_metrics_from_dedicated_endpoint():
+async def test_get_metrics_from_dedicated_endpoint(call_tool):
     with patch.object(
         api_client,
         "get_object_metrics",
@@ -352,7 +355,7 @@ async def test_get_metrics_from_dedicated_endpoint():
     assert "Followers: 7" in text
 
 
-async def test_get_metrics_falls_back_to_detail_payload():
+async def test_get_metrics_falls_back_to_detail_payload(call_tool):
     with (
         patch.object(
             api_client,

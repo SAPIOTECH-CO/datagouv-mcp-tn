@@ -3,6 +3,7 @@
 import pytest
 
 from datagouv_mcp_tn.helpers.validators import (
+    sanitize_text,
     validate_columns,
     validate_download_args,
     validate_filter_column,
@@ -25,7 +26,6 @@ from datagouv_mcp_tn.helpers.validators import (
     validate_slug,
     validate_sort_column,
     validate_sort_order,
-    sanitize_text,
 )
 
 
