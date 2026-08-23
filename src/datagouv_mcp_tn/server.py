@@ -1,38 +1,51 @@
+from contextlib import asynccontextmanager
+
 from fastmcp import FastMCP
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
+from datagouv_mcp_tn.helpers.api_client import aclose
 from datagouv_mcp_tn.helpers.config import get_settings
-from datagouv_mcp_tn.helpers.cors import (
-    apply_security_to_http_app,
-    get_host_origin_protection_config,
-)
+from datagouv_mcp_tn.helpers.cors import apply_security_to_http_app
 from datagouv_mcp_tn.helpers.logging_config import configure_logging
 from datagouv_mcp_tn.helpers.rate_limit import build_rate_limit_middleware
 from datagouv_mcp_tn.helpers.resources import (
     get_api_docs,
     get_config,
+    get_portal_info,
     get_portals_registry,
     get_schema,
 )
+from datagouv_mcp_tn.prompts import register_prompts
 from datagouv_mcp_tn.tools import register_tools
 
 # Configure JSON logging with secrets/PII sanitization before anything else
 _settings = get_settings()
 configure_logging(_settings.log_level)
 
+
+@asynccontextmanager
+async def lifespan(app):
+    """Manage server lifespan - cleanup HTTP clients on shutdown."""
+    try:
+        yield
+    finally:
+        await aclose()
+
+
 # FastMCP with strict input validation
 mcp = FastMCP(
-    "data.gouv.tn MCP server",
+    "datagouv-mcp-tn MCP server",
     instructions=(
-        "Tools for exploring the Tunisian open data portal (data.gouv.tn), "
-        "built on the uData platform. Start with search_datasets or "
-        "search_organizations, then drill into datasets with "
+        "Tools for exploring any CKAN open data portal. Start with "
+        "search_datasets or search_organizations, then drill into datasets with "
         "get_dataset_info and list_dataset_resources. Tabular resources can "
         "be analyzed in memory with download_and_parse_resource and "
-        "query_resource_data."
+        "query_resource_data. Use the `portal` parameter to target a specific "
+        "portal (default: configured default portal)."
     ),
     strict_input_validation=_settings.strict_input_validation,
+    lifespan=lifespan,
 )
 
 # --- Security middleware (order matters: rate limit first, then response limit) ---
@@ -56,13 +69,7 @@ async def health_check(request: Request) -> JSONResponse:
     return JSONResponse({"status": "ok", "service": "datagouv-mcp-tn"})
 
 
-# --- MCP Resources (read-only, accessible via ckan:// URIs) ---
-
-
-@mcp.resource("ckan://api/docs", name="CKAN API Documentation")
-async def resource_api_docs() -> str:
-    """CKAN API documentation and endpoint reference."""
-    return await get_api_docs()
+# --- MCP Resources (dynamic templates + static) ---
 
 
 @mcp.resource("ckan://config", name="Server Configuration")
@@ -77,13 +84,26 @@ async def resource_schema() -> str:
     return await get_schema()
 
 
-@mcp.resource("ckan://portals", name="Tunisian CKAN Portals Registry")
+@mcp.resource("ckan://portals", name="CKAN Portals Registry")
 async def resource_portals() -> str:
-    """Known Tunisian CKAN portals registry."""
+    """All known CKAN portals registry."""
     return await get_portals_registry()
 
 
+@mcp.resource("ckan://portals/{portal_key}/info", name="Portal Info")
+async def resource_portal_info(portal_key: str) -> str:
+    """Detailed information about a specific portal."""
+    return await get_portal_info(portal_key)
+
+
+@mcp.resource("ckan://portals/{portal_key}/api/docs", name="Portal API Docs")
+async def resource_portal_api_docs(portal_key: str) -> str:
+    """CKAN API documentation for a specific portal."""
+    return await get_api_docs(portal_key)
+
+
 register_tools(mcp)
+register_prompts(mcp)
 
 # Opt-in Generative UI
 if _settings.enable_generative_ui:
@@ -104,37 +124,3 @@ def _create_http_app():
 # For direct uvicorn usage: uvicorn datagouv_mcp_tn.server:app
 # or: fastmcp run datagouv_mcp_tn/server.py:mcp
 app = _create_http_app()
-
-# When running via `python -m datagouv_mcp_tn.server` or `fastmcp run`,
-# the host/origin protection is applied via the `run` call.
-# Users can also call `mcp.run(...)` with the protection config:
-if __name__ == "__main__":
-    host_config = get_host_origin_protection_config()
-
-    # Default to stdio for CLI/IDE integration (opencode, Claude Desktop, etc.)
-    # Allow override via env var: TRANSPORT=stdio|http|sse
-    import os
-
-    transport = os.getenv("TRANSPORT", "stdio")
-
-    if transport == "sse":
-        # SSE transport for real-time streaming
-        mcp.run(
-            transport="sse",
-            host="0.0.0.0",
-            port=8000,
-            **host_config,
-        )
-    elif transport == "http":
-        # HTTP transport for web clients
-        mcp.run(
-            transport="http",
-            host="0.0.0.0",
-            port=8000,
-            **host_config,
-        )
-    else:
-        # Default: stdio for CLI/IDE integration (opencode, Claude Desktop, etc.)
-        mcp.run(
-            transport="stdio",
-        )

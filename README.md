@@ -1,6 +1,8 @@
 # datagouv-mcp-tn
 
-A Model Context Protocol (MCP) server for [data.gouv.tn](https://data.gouv.tn) — the Tunisian open data portal. Built with [FastMCP](https://gofastmcp.com).
+A generic Model Context Protocol (MCP) server for CKAN open data portals, focused on the Tunisian ecosystem. Built with [FastMCP](https://gofastmcp.com).
+
+Supports **any CKAN portal** out of the box — add new data sources via environment variables without touching code.
 
 ## Prerequisites
 
@@ -14,7 +16,7 @@ A Model Context Protocol (MCP) server for [data.gouv.tn](https://data.gouv.tn) �
 curl -LsSf https://astral.sh/uv/install.sh | sh
 
 # Windows (PowerShell)
-powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | ieu"
 ```
 
 ## Project setup
@@ -77,7 +79,10 @@ Architecture follows [datagouv/datagouv-mcp](https://github.com/datagouv/datagou
 ```
 datagouv-mcp-tn/
 ├── src/datagouv_mcp_tn/
-│   ├── server.py              # FastMCP instance + /health route + register_tools()
+│   ├── server.py              # FastMCP instance + /health route + register_tools() + register_prompts()
+│   ├── portals.py             # Dynamic portal registry (env discovery + built-in defaults)
+│   ├── prompts/
+│   │   └── dynamic.py         # Dynamic prompt templates with Context injection
 │   ├── tools/                 # one file per tool, register_<name>_tool(mcp)
 │   │   ├── __init__.py        #   register_tools(mcp) aggregation
 │   │   ├── search_datasets.py
@@ -93,7 +98,7 @@ datagouv-mcp-tn/
 │   │   ├── download_and_parse_resource.py
 │   │   ├── query_resource_data.py
 │   │   └── get_metrics.py
-│   ├── models/                 # Pydantic models for uData payloads
+│   ├── models/                 # Pydantic models for CKAN/uData payloads
 │   │   ├── __init__.py         #   re-exports
 │   │   ├── common.py           #   Pagination, Sort, FieldFilter, PaginationInfo
 │   │   ├── dataset.py          #   Dataset, OrganizationRef, LicenseRef
@@ -101,15 +106,18 @@ datagouv-mcp-tn/
 │   │   ├── dataservice.py      #   Dataservice, Endpoint
 │   │   └── metrics.py          #   Metrics (+ per-object subtypes)
 │   └── helpers/
-│       ├── api_client.py       # async uData API client (httpx)
+│       ├── api_client.py       # async CKAN Action API client (httpx, multi-portal)
 │       ├── config.py           # Settings (pydantic-settings, reads .env)
+│       ├── context.py          # FastMCP Depends providers (default portal, language)
 │       ├── file_parser.py      # in-memory CSV/XLS/XLSX/ODS/JSON/GeoJSON parsing (pandas)
 │       ├── document_inspector.py # PDF/DOCX/PPTX/HTML(Scrapy)/XML/images/ZIP/KMZ summaries
 │       ├── i18n.py             # AR/FR/EN message catalog for tool output
 │       ├── logging.py          # logger + log_tool decorator
 │       ├── logging_config.py   # structured JSON logging (uvicorn-aware)
 │       ├── query_cleaner.py    # stop-word removal for search queries (FR/AR)
-│       └── mcp_tool_defaults.py  # READ_ONLY_EXTERNAL_API_TOOL annotations
+│       ├── resources.py        # MCP resource handlers (static + dynamic templates)
+│       ├── mcp_tool_defaults.py  # READ_ONLY_EXTERNAL_API_TOOL annotations
+│       └── validators.py       # Input validation/sanitization for all tool arguments
 ├── tests/
 │   └── test_tools.py          # pytest suite (in-memory MCP client)
 ├── main.py                    # entry point (transport set by FASTMCP_TRANSPORT)
@@ -170,9 +178,67 @@ Upgrade dependencies:
 uv lock --upgrade && uv sync
 ```
 
+## Dynamic portals
+
+The server ships with five built-in Tunisian CKAN portals (`data-gov-tn`, `industrie`, `culture`, `transport`, `agridata`). Add new portals without code changes by setting environment variables:
+
+```bash
+# Add a custom portal
+PORTAL_MY_PORTAL_API_URL=https://catalog.example.com/api/3
+PORTAL_MY_PORTAL_NAME=My Custom Portal
+PORTAL_MY_PORTAL_CATALOG_URL=https://catalog.example.com
+PORTAL_MY_PORTAL_API_KEY=optional-secret-key
+PORTAL_MY_PORTAL_REQUIRES_AUTH=false
+```
+
+Optional per-portal overrides:
+
+| Variable | Description |
+| --- | --- |
+| `PORTAL_<KEY>_NAME` | Display name (defaults to the key) |
+| `PORTAL_<KEY>_CATALOG_URL` | UI catalog URL (derived from `API_URL` if omitted) |
+| `PORTAL_<KEY>_DESCRIPTION` | Short description |
+| `PORTAL_<KEY>_REQUIRES_AUTH` | `true` / `false` (default: `false`) |
+| `PORTAL_<KEY>_API_KEY` | API key for authenticated portals |
+| `PORTAL_<KEY>_REQUEST_TIMEOUT` | HTTP timeout in seconds (default: `30`) |
+| `PORTAL_<KEY>_REQUEST_MAX_RETRIES` | Retries on transient failures (default: `2`) |
+| `PORTAL_<KEY>_RETRY_BACKOFF_SECONDS` | Base delay for exponential backoff (default: `0.5`) |
+| `PORTAL_<KEY>_DOWNLOAD_TIMEOUT` | Download timeout in seconds (default: `120`) |
+| `PORTAL_<KEY>_MAX_DOWNLOAD_SIZE_MB` | Max download size in MB (default: `50`) |
+
+The `<KEY>` is normalized to lowercase with dashes (e.g. `PORTAL_MY_PORTAL_API_URL` → key `my-portal`).
+
+Set `DEFAULT_PORTAL_KEY` to change which portal tools target when no `portal` argument is provided.
+
+## Prompts
+
+The server exposes dynamic prompt templates via FastMCP's `@mcp.prompt` system. Prompts use `Context` injection to read runtime state (default portal, available portals) without hardcoding data sources.
+
+Available prompts:
+
+- `explore_portal` — guide the user through exploring a specific CKAN portal
+- `search_and_analyze` — find datasets on a topic and analyze tabular resources
+- `discover_portals` — compare available portals and their capabilities
+- `analyze_resource` — inspect, parse, and query a specific resource file
+- `workflow_assistant` — general entry point for navigating CKAN open data
+
+Prompts are registered automatically on server startup (`server.py` → `register_prompts()`).
+
+## Resources
+
+Read portal metadata and API docs via dynamic resource templates:
+
+| URI | Description |
+| --- | --- |
+| `ckan://config` | Server configuration (JSON) |
+| `ckan://schema` | CKAN API schema reference (abridged) |
+| `ckan://portals` | All known portals registry |
+| `ckan://portals/{portal_key}/info` | Detailed info for a specific portal |
+| `ckan://portals/{portal_key}/api/docs` | CKAN API docs for a specific portal |
+
 ## Tools
 
-All tools are read-only (`readOnlyHint=True`) and query the uData API of data.gouv.tn:
+All tools are read-only (`readOnlyHint=True`) and query the CKAN Action API v3:
 
 | Tool | Description |
 | --- | --- |
@@ -202,7 +268,7 @@ Typical flows:
 - Data analysis: `list_dataset_resources` → `download_and_parse_resource` → `query_resource_data`
 
 Tabular formats parsed into DataFrames: **CSV, XLS, XLSX, ODS, JSON, GeoJSON** —
-the formats actually found on data.gouv.tn (~80% of resources).
+the formats actually found on CKAN portals (~80% of resources).
 
 Everything else is inspected instead of rejected (`document_inspector`):
 
@@ -224,29 +290,42 @@ detection combines normalized extensions with magic-byte sniffing.
 
 1. Create `src/datagouv_mcp_tn/tools/<tool_name>.py` following the existing pattern:
 
-   ```python
-   from fastmcp import FastMCP
+    ```python
+    from fastmcp import FastMCP
 
-   from datagouv_mcp_tn.helpers import api_client
-   from datagouv_mcp_tn.helpers.logging import log_tool
-   from datagouv_mcp_tn.helpers.mcp_tool_defaults import READ_ONLY_EXTERNAL_API_TOOL
+    from datagouv_mcp_tn.helpers import api_client
+    from datagouv_mcp_tn.helpers.logging import log_tool
+    from datagouv_mcp_tn.helpers.mcp_tool_defaults import READ_ONLY_EXTERNAL_API_TOOL
 
 
-   def register_my_tool(mcp: FastMCP) -> None:
-       @mcp.tool(title="My tool", annotations=READ_ONLY_EXTERNAL_API_TOOL)
-       @log_tool
-       async def my_tool(param: str) -> str:
-           """What the tool does and when the model should use it."""
-           try:
-               data = await api_client.get_something(param)
-           except Exception as e:  # noqa: BLE001
-               return f"Error: {e}"
-           return f"Result for {param}: {data}"
-   ```
+    def register_my_tool(mcp: FastMCP) -> None:
+        @mcp.tool(title="My tool", annotations=READ_ONLY_EXTERNAL_API_TOOL)
+        @log_tool
+        async def my_tool(param: str) -> str:
+            """What the tool does and when the model should use it."""
+            try:
+                data = await api_client.get_something(param)
+            except api_client.CKANError as e:
+                return f"Error: {e}"
+            return f"Result for {param}: {data}"
+    ```
 
 2. Register it in `src/datagouv_mcp_tn/tools/__init__.py` inside `register_tools()`.
-3. If it needs a new API call, add a function in `helpers/api_client.py` instead of calling `_get_json` from the tool directly.
+3. If it needs a new API call, add a function in `helpers/api_client.py` instead of calling `_call_action` from the tool directly.
 4. Add a test in `tests/test_tools.py` (mock at the `api_client` boundary, use the in-memory client).
+
+## Adding a new prompt
+
+1. Create a function in `src/datagouv_mcp_tn/prompts/dynamic.py` with the `@mcp.prompt` decorator:
+
+    ```python
+    @mcp.prompt
+    async def my_prompt(ctx: Context, topic: str) -> str:
+        \"\"\"Describe what this prompt helps the user accomplish.\"\"\"
+        return f"Help the user explore data about: {topic}"
+    ```
+
+2. Register it in `register_prompts()` at the bottom of the same file.
 
 ## Testing
 
@@ -265,12 +344,13 @@ fastmcp dev main.py
 
 ## Configuration
 
-Copy `.env.example` to `.env` and adjust. All variables are optional:
+Copy `.env.example` to `.env` and adjust. Key variables:
 
 | Variable | Default | Description |
 | --- | --- | --- |
-| `DATA_GOUV_TN_API_URL` | `https://data.gouv.tn/api/1` | Base URL of the uData API |
-| `DATA_GOUV_TN_API_KEY` | *(empty)* | API key, sent as `X-API-KEY` header if set |
+| `DEFAULT_PORTAL_KEY` | `agridata` | Default portal for tools that don't specify `portal` |
+| `PORTAL_<KEY>_API_URL` | *(none)* | Add a new CKAN portal dynamically |
+| `PORTAL_<KEY>_API_KEY` | *(empty)* | API key for a specific portal |
 | `FASTMCP_TRANSPORT` | `stdio` | `stdio`, `http`, or `sse` |
 | `FASTMCP_HOST` | `127.0.0.1` | Bind host for `http` / `sse` transports |
 | `FASTMCP_PORT` | `8000` | Bind port for `http` / `sse` transports |
@@ -283,6 +363,18 @@ Copy `.env.example` to `.env` and adjust. All variables are optional:
 | `ENABLE_GENERATIVE_UI` | `false` | Opt-in Generative UI provider: the LLM composes Prefab views at runtime in a Pyodide sandbox (needs Deno on the host). Adds 2 tools when enabled |
 | `LOG_LEVEL` | `INFO` | Logging verbosity |
 
+### Security
+
+All security features are **enabled by default** with production-safe values. Override via `.env` as needed.
+
+| Layer | Implementation | Key Settings |
+| --- | --- | --- |
+| **Input validation** | FastMCP `strict_input_validation=True` + custom validators (`helpers/validators.py`) | `STRICT_INPUT_VALIDATION` |
+| **Rate limiting** | `SlidingWindowRateLimitingMiddleware` (100 req/min default) | `RATE_LIMIT_ENABLED`, `RATE_LIMIT_MAX_REQUESTS`, `RATE_LIMIT_WINDOW_MINUTES` |
+| **CORS** | Starlette `CORSMiddleware` with MCP-required headers | `CORS_ENABLED`, `CORS_ALLOWED_ORIGINS`, ... |
+| **Host/Origin protection** | FastMCP built-in DNS rebinding guard (`host_origin_protection`) | `HOST_ORIGIN_PROTECTION`, `ALLOWED_HOSTS`, `ALLOWED_ORIGINS` |
+| **Log sanitization** | Automatic masking of secrets (API keys, tokens, passwords) and PII (emails, IPs, user IDs) in all log records | `LOG_SANITIZATION_ENABLED` |
+
 ## Docker
 
 Build and run locally with Docker Compose:
@@ -292,6 +384,15 @@ docker compose up --build
 ```
 
 The container serves the streamable HTTP transport on `0.0.0.0:${FASTMCP_PORT:-8000}` (`/mcp` + `/health`), with a built-in healthcheck. Configure via env vars in `docker-compose.yml` or a `.env` file next to it.
+
+To add a custom portal in Docker, pass the `PORTAL_<KEY>_API_URL` environment variable:
+
+```bash
+docker compose up -d
+docker compose exec datagouv-mcp-tn env | grep PORTAL_
+# or in .env:
+# PORTAL_MY_PORTAL_API_URL=https://catalog.example.com/api/3
+```
 
 Manual build:
 
@@ -303,20 +404,6 @@ docker run -p 8000:8000 datagouv-mcp-tn
 ## Logging
 
 All logs (app + uvicorn access logs) are emitted as single-line JSON for log aggregation pipelines, configured in `src/datagouv_mcp_tn/helpers/logging_config.py`. Verbosity is controlled by `LOG_LEVEL`.
-
-## Security
-
-The server includes multiple security layers (all configurable via `.env`):
-
-| Layer | Implementation | Key Settings |
-|-------|----------------|--------------|
-| **Input validation** | FastMCP `strict_input_validation=True` + custom validators (`helpers/validators.py`) | `STRICT_INPUT_VALIDATION` |
-| **Rate limiting** | `SlidingWindowRateLimitingMiddleware` (100 req/min default) | `RATE_LIMIT_ENABLED`, `RATE_LIMIT_MAX_REQUESTS`, `RATE_LIMIT_WINDOW_MINUTES` |
-| **CORS** | Starlette `CORSMiddleware` with MCP-required headers | `CORS_ENABLED`, `CORS_ALLOWED_ORIGINS`, ... |
-| **Host/Origin protection** | FastMCP built-in DNS rebinding guard (`host_origin_protection`) | `HOST_ORIGIN_PROTECTION`, `ALLOWED_HOSTS`, `ALLOWED_ORIGINS` |
-| **Log sanitization** | Automatic masking of secrets (API keys, tokens, passwords) and PII (emails, IPs, user IDs) in all log records | `LOG_SANITIZATION_ENABLED` |
-
-All security features are **enabled by default** with production-safe values. Override via `.env` as needed.
 
 ## Git hooks
 

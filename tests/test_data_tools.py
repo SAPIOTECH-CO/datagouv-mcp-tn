@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from datagouv_mcp_tn.helpers import api_client
-from datagouv_mcp_tn.helpers.api_client import UDataError
+from datagouv_mcp_tn.helpers.api_client import CKANError
 
 CSV_BYTES = b"city,score\nTunis,9\nSfax,7\nNabeul,5\n"
 
@@ -99,7 +99,7 @@ async def test_get_dataservice_info_shows_metadata_and_endpoints(call_tool):
 async def test_get_dataservice_info_handles_missing(call_tool):
     with patch.object(api_client, "get_dataservice_details", new=AsyncMock(return_value={})):
         text = await call_tool("get_dataservice_info", {"dataservice_id": "gone"})
-    assert text.startswith("Error: Dataservice with ID 'gone' not found.")
+    assert "Error: Dataservice with ID 'gone' not found" in text
 
 
 # --- TASK-025: get_dataservice_openapi_spec ---
@@ -360,7 +360,7 @@ async def test_get_metrics_falls_back_to_detail_payload(call_tool):
         patch.object(
             api_client,
             "get_object_metrics",
-            new=AsyncMock(side_effect=UDataError("404")),
+            new=AsyncMock(side_effect=CKANError("404")),
         ),
         patch.object(
             api_client,

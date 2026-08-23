@@ -2,6 +2,25 @@ from functools import lru_cache
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from datagouv_mcp_tn.portals import Portal, get_default_portal_key, get_portal
+
+
+class PortalSettings(BaseSettings):
+    """Per-portal settings (can be overridden via env vars)."""
+    api_url: str
+    api_key: str | None = None
+    request_timeout: float = 30.0
+    request_max_retries: int = 2
+    retry_backoff_seconds: float = 0.5
+    download_timeout: float = 120.0
+    max_download_size_mb: int = 50
+    ssl_verify: bool = True
+
+    model_config = SettingsConfigDict(
+        env_prefix="",
+        extra="ignore",
+    )
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
@@ -10,8 +29,10 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    data_gouv_tn_api_url: str = "https://data.gouv.tn/api/1"
-    data_gouv_tn_api_key: str | None = None
+    # Default portal key
+    default_portal: str = get_default_portal_key()
+
+    # Global defaults (used as fallback for portals without explicit config)
     request_timeout: float = 30.0
     request_max_retries: int = 2
     retry_backoff_seconds: float = 0.5
@@ -19,13 +40,9 @@ class Settings(BaseSettings):
     max_download_size_mb: int = 50
     default_language: str = "fr"
     log_level: str = "INFO"
-    # Opt-in: registers the Generative UI provider (generate_prefab_ui),
-    # which executes LLM-written Prefab code in a Pyodide sandbox and needs
-    # Deno on the host for server-side validation. Off by default.
     enable_generative_ui: bool = False
 
     # --- Security settings ---
-    # Strict input validation for tool arguments (FastMCP native)
     strict_input_validation: bool = True
 
     # Rate limiting (SlidingWindowRateLimitingMiddleware)
@@ -54,6 +71,49 @@ class Settings(BaseSettings):
 
     # Log sanitization (secrets + PII masking)
     log_sanitization_enabled: bool = True
+
+    # Per-portal overrides (loaded from env vars like PORTAL_DATA_GOV_TN_API_KEY)
+    _portal_overrides: dict[str, PortalSettings] = {}
+
+    def get_portal_settings(self, portal: Portal) -> PortalSettings:
+        """Get settings for a specific portal, merging global defaults with overrides."""
+        # Check for per-portal env vars (e.g., PORTAL_DATA_GOV_TN_API_KEY)
+        import os
+        prefix = f"PORTAL_{portal.key.upper().replace('-', '_')}_"
+        overrides = {}
+        for key in ("api_url", "api_key", "request_timeout", "request_max_retries",
+                    "retry_backoff_seconds", "download_timeout", "max_download_size_mb",
+                    "ssl_verify"):
+            env_key = f"{prefix}{key.upper()}"
+            if env_key in os.environ:
+                val = os.environ[env_key]
+                # Type conversion
+                if key in ("request_timeout", "retry_backoff_seconds", "download_timeout"):
+                    val = float(val)
+                elif key in ("request_max_retries", "max_download_size_mb"):
+                    val = int(val)
+                overrides[key] = val
+
+        # Use portal's default API URL if not overridden
+        if "api_url" not in overrides:
+            overrides["api_url"] = portal.api_url
+
+        return PortalSettings(
+            api_url=overrides.get("api_url", portal.api_url),
+            api_key=overrides.get("api_key"),
+            request_timeout=overrides.get("request_timeout", self.request_timeout),
+            request_max_retries=overrides.get("request_max_retries", self.request_max_retries),
+            retry_backoff_seconds=overrides.get(
+                "retry_backoff_seconds", self.retry_backoff_seconds
+            ),
+            download_timeout=overrides.get("download_timeout", self.download_timeout),
+            max_download_size_mb=overrides.get("max_download_size_mb", self.max_download_size_mb),
+            ssl_verify=overrides.get("ssl_verify", portal.ssl_verify),
+        )
+
+    def get_default_portal(self) -> Portal:
+        """Get the default portal."""
+        return get_portal(self.default_portal)
 
 
 @lru_cache

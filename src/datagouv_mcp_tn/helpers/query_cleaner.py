@@ -1,6 +1,6 @@
-"""Clean free-text search queries before sending them to the uData API.
+"""Clean free-text search queries before sending them to the CKAN API.
 
-The uData search uses strict AND logic: generic words that never appear in
+The CKAN search uses AND logic: generic words that never appear in
 dataset metadata ("données", "fichier", "بيانات"...) cause zero results.
 This module strips them while preserving the user's meaningful keywords.
 """
@@ -8,8 +8,7 @@ This module strips them while preserving the user's meaningful keywords.
 import re
 
 # Generic words users add but that are not typically present in dataset
-# metadata. French first (mirrors datagouv/datagouv-mcp), then the Arabic
-# equivalents commonly used on data.gouv.tn.
+# metadata. French first, then Arabic equivalents commonly used on agridata.tn.
 STOP_WORDS = frozenset(
     {
         # French

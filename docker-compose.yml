@@ -7,11 +7,59 @@ services:
     ports:
       - "${FASTMCP_PORT:-8000}:${FASTMCP_PORT:-8000}"
     environment:
+      # Transport
       - FASTMCP_TRANSPORT=${FASTMCP_TRANSPORT:-http}
       - FASTMCP_HOST=${FASTMCP_HOST:-0.0.0.0}
       - FASTMCP_PORT=${FASTMCP_PORT:-8000}
-      - DATA_GOUV_TN_API_URL=${DATA_GOUV_TN_API_URL:-https://data.gouv.tn/api/1}
-      - DATA_GOUV_TN_API_KEY=${DATA_GOUV_TN_API_KEY}
+      # Default portal
+      - DEFAULT_PORTAL_KEY=${DEFAULT_PORTAL_KEY:-agridata}
+      # Dynamic portals (add as many as needed)
+      - PORTAL_DATA_GOV_TN_API_URL=${PORTAL_DATA_GOV_TN_API_URL:-https://catalog.data.gov.tn/api/3}
+      - PORTAL_INDUSTRIE_API_URL=${PORTAL_INDUSTRIE_API_URL:-http://data.industrie.gov.tn/api/3}
+      - PORTAL_CULTURE_API_URL=${PORTAL_CULTURE_API_URL:-http://www.openculture.gov.tn/api/3}
+      - PORTAL_TRANSPORT_API_URL=${PORTAL_TRANSPORT_API_URL:-https://data.transport.tn/api/3}
+      - PORTAL_AGRIDATA_API_URL=${PORTAL_AGRIDATA_API_URL:-https://catalog.agridata.tn/api/3}
+      # Optional portal API keys
+      - PORTAL_DATA_GOV_TN_API_KEY=${PORTAL_DATA_GOV_TN_API_KEY}
+      - PORTAL_INDUSTRIE_API_KEY=${PORTAL_INDUSTRIE_API_KEY}
+      - PORTAL_CULTURE_API_KEY=${PORTAL_CULTURE_API_KEY}
+      - PORTAL_TRANSPORT_API_KEY=${PORTAL_TRANSPORT_API_KEY}
+      - PORTAL_AGRIDATA_API_KEY=${PORTAL_AGRIDATA_API_KEY}
+      # SSL verification (set false for portals with certificate errors)
+      - PORTAL_DATA_GOV_TN_SSL_VERIFY=${PORTAL_DATA_GOV_TN_SSL_VERIFY:-false}
+      - PORTAL_INDUSTRIE_SSL_VERIFY=${PORTAL_INDUSTRIE_SSL_VERIFY:-true}
+      - PORTAL_CULTURE_SSL_VERIFY=${PORTAL_CULTURE_SSL_VERIFY:-true}
+      - PORTAL_TRANSPORT_SSL_VERIFY=${PORTAL_TRANSPORT_SSL_VERIFY:-true}
+      - PORTAL_AGRIDATA_SSL_VERIFY=${PORTAL_AGRIDATA_SSL_VERIFY:-true}
+      # HTTP settings
       - REQUEST_TIMEOUT=${REQUEST_TIMEOUT:-30}
+      - REQUEST_MAX_RETRIES=${REQUEST_MAX_RETRIES:-2}
+      - RETRY_BACKOFF_SECONDS=${RETRY_BACKOFF_SECONDS:-0.5}
+      - MAX_DOWNLOAD_SIZE_MB=${MAX_DOWNLOAD_SIZE_MB:-50}
+      - DOWNLOAD_TIMEOUT=${DOWNLOAD_TIMEOUT:-120}
+      - DEFAULT_LANGUAGE=${DEFAULT_LANGUAGE:-fr}
+      # Generative UI
+      - ENABLE_GENERATIVE_UI=${ENABLE_GENERATIVE_UI:-false}
+      # Logging
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      # Security
+      - STRICT_INPUT_VALIDATION=${STRICT_INPUT_VALIDATION:-true}
+      - RATE_LIMIT_ENABLED=${RATE_LIMIT_ENABLED:-true}
+      - RATE_LIMIT_MAX_REQUESTS=${RATE_LIMIT_MAX_REQUESTS:-100}
+      - RATE_LIMIT_WINDOW_MINUTES=${RATE_LIMIT_WINDOW_MINUTES:-1}
+      # CORS configuration
+      - CORS_ENABLED=${CORS_ENABLED:-true}
+      - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-["*"]}
+      - CORS_ALLOWED_METHODS=${CORS_ALLOWED_METHODS:-["GET","POST","DELETE","OPTIONS"]}
+      - CORS_ALLOWED_HEADERS=${CORS_ALLOWED_HEADERS:-["mcp-protocol-version","mcp-session-id","Authorization","Content-Type"]}
+      - CORS_EXPOSE_HEADERS=${CORS_EXPOSE_HEADERS:-["mcp-session-id"]}
+      - CORS_ALLOW_CREDENTIALS=${CORS_ALLOW_CREDENTIALS:-false}
+      - CORS_MAX_AGE=${CORS_MAX_AGE:-600}
+      # Host/Origin protection
+      - HOST_ORIGIN_PROTECTION=${HOST_ORIGIN_PROTECTION:-true}
+      # Optional: set ALLOWED_HOSTS / ALLOWED_ORIGINS as JSON arrays to enable explicit allowlists
+      # - ALLOWED_HOSTS=${ALLOWED_HOSTS:-[]}
+      # - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-[]}
+      # Log sanitization
+      - LOG_SANITIZATION_ENABLED=${LOG_SANITIZATION_ENABLED:-true}
     restart: unless-stopped

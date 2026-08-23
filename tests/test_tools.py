@@ -4,7 +4,7 @@ import pytest
 from mcp.types import TextContent
 
 from datagouv_mcp_tn.helpers import api_client
-from datagouv_mcp_tn.helpers.api_client import UDataError
+from datagouv_mcp_tn.helpers.api_client import CKANError
 
 SEARCH_PAGE = {
     "total": 2,
@@ -153,7 +153,7 @@ async def test_get_resource_info_reports_unknown_resource(call_tool):
     with patch.object(
         api_client,
         "get_resource_details",
-        new=AsyncMock(side_effect=UDataError("Resource 'x' not found")),
+        new=AsyncMock(side_effect=CKANError("Resource 'x' not found")),
     ):
         text = await call_tool("get_resource_info", {"dataset_id": "abc-1", "resource_id": "x"})
     assert "not found" in text
@@ -178,7 +178,7 @@ async def test_tools_return_error_text_on_api_failure(call_tool):
     with patch.object(
         api_client,
         "search_datasets",
-        new=AsyncMock(side_effect=UDataError("connection refused")),
+        new=AsyncMock(side_effect=CKANError("connection refused")),
     ):
         text = await call_tool("search_datasets", {"query": "x"})
     assert text.startswith("Error:")
@@ -192,12 +192,14 @@ async def test_tools_return_error_text_on_api_failure(call_tool):
 async def test_api_client_caps_page_size_at_100(requested, expected):
     http = AsyncMock()
     response = MagicMock()
-    response.json.return_value = {}
+    response.json.return_value = {"success": True, "result": {"count": 0, "results": []}}
     http.get = AsyncMock(return_value=response)
     with (
-        patch.object(api_client, "_http", None),
-        patch("datagouv_mcp_tn.helpers.api_client._client", return_value=http),
+        patch.object(api_client, "_http_clients", {}),
+        patch("datagouv_mcp_tn.helpers.api_client._get_client", return_value=http),
     ):
-        await api_client.search_datasets(query="q", page=2, page_size=requested)
+        await api_client.search_datasets(
+            query="q", page=2, page_size=requested, portal_key="agridata"
+        )
     _, kwargs = http.get.await_args
-    assert kwargs["params"]["page_size"] == expected
+    assert kwargs["params"]["rows"] == expected

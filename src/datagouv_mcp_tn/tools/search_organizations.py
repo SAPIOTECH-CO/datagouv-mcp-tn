@@ -13,6 +13,7 @@ from datagouv_mcp_tn.helpers.mcp_tool_defaults import READ_ONLY_EXTERNAL_API_TOO
 from datagouv_mcp_tn.helpers.prefab_views import organizations_table
 from datagouv_mcp_tn.helpers.validators import validate_search_args
 from datagouv_mcp_tn.models.common import PaginationInfo
+from datagouv_mcp_tn.portals import get_portal
 
 
 def register_search_organizations_tool(mcp: FastMCP) -> None:
@@ -27,26 +28,32 @@ def register_search_organizations_tool(mcp: FastMCP) -> None:
         page: int = 1,
         page_size: int = 20,
         language: Language | None = None,
+        portal: str | None = None,
     ) -> str | ToolResult:
         """
-        Search for publishing organizations (ministries, agencies...) on data.gouv.tn.
+        Search for publishing organizations (ministries, agencies...) across Tunisian CKAN portals.
 
         Args:
             query: Search keywords.
             page: 1-based page number for pagination.
             page_size: Number of results per page (max 100).
             language: Output language (fr/ar/en); defaults to DEFAULT_LANGUAGE.
+            portal: Portal key (data-gov-tn, industrie, culture, transport, agridata).
+                   Defaults to configured default portal.
 
         Returns:
             A formatted list of matching organizations with their IDs so they
             can be passed to get_organization_info next.
         """
         lang = resolve_language(language)
+        portal_obj = get_portal(portal)
         query, page, page_size, lang = validate_search_args(query, page, page_size, lang)
 
         try:
-            data = await api_client.search_organizations(query, page=page, page_size=page_size)
-        except Exception as e:  # noqa: BLE001
+            data = await api_client.search_organizations(
+                query, page=page, page_size=page_size, portal_key=portal_obj.key
+            )
+        except api_client.CKANError as e:
             return f"Error: {e}"
 
         results = data.get("data", [])
@@ -60,6 +67,7 @@ def register_search_organizations_tool(mcp: FastMCP) -> None:
                 query=query,
             ),
             pagination.describe(lang),
+            f"Portal: {portal_obj.name}",
             "",
         ]
 

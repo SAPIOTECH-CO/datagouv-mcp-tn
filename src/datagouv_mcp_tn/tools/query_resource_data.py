@@ -17,6 +17,7 @@ from datagouv_mcp_tn.helpers.mcp_tool_defaults import READ_ONLY_EXTERNAL_API_TOO
 from datagouv_mcp_tn.helpers.prefab_views import rows_table
 from datagouv_mcp_tn.helpers.validators import validate_query_resource_args
 from datagouv_mcp_tn.models.common import SortOrder
+from datagouv_mcp_tn.portals import get_portal
 
 
 def _coerce_value(value: str):
@@ -46,6 +47,7 @@ def register_query_resource_data_tool(mcp: FastMCP) -> None:
         sort_order: SortOrder = SortOrder.ASCENDING,
         limit: int = 20,
         offset: int = 0,
+        portal: str | None = None,
     ) -> str | ToolResult:
         """
         Query rows of a tabular resource (CSV, XLSX, JSON, GeoJSON) in memory.
@@ -61,11 +63,14 @@ def register_query_resource_data_tool(mcp: FastMCP) -> None:
             sort_order: asc or desc (applies to sort_by).
             limit: Maximum rows returned (1-100).
             offset: Rows to skip before slicing.
+            portal: Portal key (data-gov-tn, industrie, culture, transport, agridata).
+                   Defaults to configured default portal.
 
         Returns:
             Match counts plus the matching rows as a text table. Start with
             download_and_parse_resource to inspect columns first.
         """
+        portal_obj = get_portal(portal)
         # Validate and sanitize all inputs
         (
             dataset_id,
@@ -97,7 +102,9 @@ def register_query_resource_data_tool(mcp: FastMCP) -> None:
         )
 
         try:
-            raw = await api_client.get_resource_details(dataset_id, resource_id)
+            raw = await api_client.get_resource_details(
+                dataset_id, resource_id, portal_key=portal_obj.key
+            )
             fmt = detect_format(raw)
             if fmt is None:
                 raise UnsupportedFormatError(explain_unsupported(raw))
@@ -106,7 +113,7 @@ def register_query_resource_data_tool(mcp: FastMCP) -> None:
                 raise ValueError("This resource has no downloadable URL.")
             content = await fetch_resource_bytes(url)
             result = parse_tabular(content, fmt)
-        except Exception as e:  # noqa: BLE001
+        except (api_client.CKANError, UnsupportedFormatError, ValueError) as e:
             return f"Error: {e}"
 
         frame = result.dataframe
@@ -184,6 +191,7 @@ def register_query_resource_data_tool(mcp: FastMCP) -> None:
         lines = [
             f"Matched {matched} row(s) · showing {len(page)} row(s) "
             f"(offset {offset}, limit {limit_clamped})",
+            f"Portal: {portal_obj.name}",
             "",
         ]
         if page.empty:

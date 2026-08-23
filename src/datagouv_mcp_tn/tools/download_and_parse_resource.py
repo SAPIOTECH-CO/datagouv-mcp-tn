@@ -17,6 +17,7 @@ from datagouv_mcp_tn.helpers.logging import log_tool
 from datagouv_mcp_tn.helpers.mcp_tool_defaults import READ_ONLY_EXTERNAL_API_TOOL
 from datagouv_mcp_tn.helpers.prefab_views import rows_table
 from datagouv_mcp_tn.helpers.validators import validate_download_args
+from datagouv_mcp_tn.portals import get_portal
 
 _MAGIC_KINDS_NEVER_TABULAR = frozenset({"pdf", "png", "jpeg", "gif", "ole2"})
 
@@ -56,9 +57,10 @@ def register_download_and_parse_resource_tool(mcp: FastMCP) -> None:
         dataset_id: str,
         resource_id: str,
         preview_rows: int = PREVIEW_ROWS,
+        portal: str | None = None,
     ) -> str | ToolResult:
         """
-        Download any resource from data.gouv.tn and analyze it in memory.
+        Download any resource from a Tunisian CKAN portal and analyze it in memory.
 
         Tabular files (CSV, XLS, XLSX, ODS, JSON, GeoJSON) are parsed into
         rows/columns with a preview. Everything else — PDF, Word, PowerPoint,
@@ -72,23 +74,28 @@ def register_download_and_parse_resource_tool(mcp: FastMCP) -> None:
             dataset_id: Dataset ID or slug.
             resource_id: Resource ID (from list_dataset_resources results).
             preview_rows: Number of preview rows for tabular files (1-20).
+            portal: Portal key (data-gov-tn, industrie, culture, transport, agridata).
+                   Defaults to configured default portal.
 
         Returns:
             A structured summary of the file content.
         """
+        portal_obj = get_portal(portal)
         # Validate and sanitize inputs
         dataset_id, resource_id, preview_rows = validate_download_args(
             dataset_id, resource_id, preview_rows
         )
 
         try:
-            raw = await api_client.get_resource_details(dataset_id, resource_id)
-        except Exception as e:  # noqa: BLE001
+            raw = await api_client.get_resource_details(
+                dataset_id, resource_id, portal_key=portal_obj.key
+            )
+        except api_client.CKANError as e:
             return f"Error: {e}"
 
         fmt = detect_format(raw)
         if fmt is not None:
-            return await _summarize_tabular(raw, resource_id, fmt, preview_rows)
+            return await _summarize_tabular(raw, resource_id, fmt, preview_rows, portal_obj)
 
         # Non-tabular (or undetectable): download once and describe it.
         url = raw.get("url")
@@ -97,13 +104,13 @@ def register_download_and_parse_resource_tool(mcp: FastMCP) -> None:
         try:
             content = await fetch_resource_bytes(url)
             kind, lines = inspect_non_tabular(content, normalize_format(raw.get("format")))
-        except Exception as e:  # noqa: BLE001
+        except Exception as e:
             return f"Error: could not inspect resource: {e}"
         return _render_inspection(raw, resource_id, kind, lines, len(content))
 
 
 async def _summarize_tabular(
-    raw: dict, resource_id: str, fmt: str, preview_rows: int
+    raw: dict, resource_id: str, fmt: str, preview_rows: int, portal_obj
 ) -> str | ToolResult:
     url = raw.get("url")
     if not url:
@@ -111,21 +118,22 @@ async def _summarize_tabular(
 
     try:
         content = await fetch_resource_bytes(url)
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:
         return f"Error: could not download {fmt.upper()} content: {e}"
 
     # A file announced as CSV whose magic bytes reveal a PDF/image/legacy
     # Office payload would otherwise be shredded into garbage rows by the
     # delimiter-sniffing parser — send it straight to inspection.
     if fmt == "csv" and sniff_kind(content) in _MAGIC_KINDS_NEVER_TABULAR:
-        return _inspect_fallback(raw, resource_id, content, fmt)
+        return _inspect_fallback(raw, resource_id, content, fmt, portal_obj)
 
     try:
         result = parse_tabular(content, fmt)
-    except Exception as parse_error:  # noqa: BLE001
-        return _inspect_fallback(raw, resource_id, content, fmt, parse_error)
+    except Exception as parse_error:
+        return _inspect_fallback(raw, resource_id, content, fmt, portal_obj, parse_error)
 
     lines = [f"Resource: {_resource_title(raw, resource_id)}"]
+    lines.append(f"Portal: {portal_obj.name}")
     lines.extend(download_summary_lines(result, len(content)))
     lines.append("")
     if result.n_rows == 0:
@@ -149,12 +157,13 @@ def _inspect_fallback(
     resource_id: str,
     content: bytes,
     fmt: str,
+    portal_obj,
     parse_error: Exception | None = None,
 ) -> str:
     """Describe content the tabular parser rejected (or should not touch)."""
     try:
         kind, lines = inspect_non_tabular(content, fmt)
-    except Exception:  # noqa: BLE001
+    except Exception:
         reason = f" ({parse_error})" if parse_error else ""
         return f"Error: could not parse {fmt.upper()} content{reason}"
     notice = (

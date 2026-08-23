@@ -9,6 +9,7 @@ from datagouv_mcp_tn.helpers.mcp_tool_defaults import READ_ONLY_EXTERNAL_API_TOO
 from datagouv_mcp_tn.helpers.prefab_views import metrics_view
 from datagouv_mcp_tn.helpers.validators import validate_metrics_args
 from datagouv_mcp_tn.models.metrics import Metrics
+from datagouv_mcp_tn.portals import get_portal
 
 _METRICS_FIELDS = (
     "views",
@@ -52,6 +53,7 @@ def register_get_metrics_tool(mcp: FastMCP) -> None:
     async def get_metrics(
         object_type: Literal["dataset", "organization", "dataservice", "reuse"],
         object_id: str,
+        portal: str | None = None,
     ) -> str | ToolResult:
         """
         Get usage metrics (views, followers, reuses...) for a portal object.
@@ -59,17 +61,22 @@ def register_get_metrics_tool(mcp: FastMCP) -> None:
         Args:
             object_type: Kind of object to inspect.
             object_id: Object ID (from the corresponding search/info tools).
+            portal: Portal key (data-gov-tn, industrie, culture, transport, agridata).
+                   Defaults to configured default portal.
 
         Returns:
             One line per available metric. Falls back to the embedded
             'metrics' attribute when the dedicated endpoint is unavailable.
         """
+        portal_obj = get_portal(portal)
         # Validate and sanitize inputs
         object_type, object_id = validate_metrics_args(object_type, object_id)
 
         try:
-            payload = await api_client.get_object_metrics(object_type, object_id)
-        except Exception:  # noqa: BLE001 - fall back to detail payload metrics
+            payload = await api_client.get_object_metrics(
+                object_type, object_id, portal_key=portal_obj.key
+            )
+        except api_client.CKANError:
             detail_fetchers = {
                 "dataset": api_client.get_dataset_details,
                 "organization": api_client.get_organization_details,
@@ -79,8 +86,8 @@ def register_get_metrics_tool(mcp: FastMCP) -> None:
             if fetcher is None:
                 return f"Error: no fallback metrics source for '{object_type}'."
             try:
-                detail = await fetcher(object_id)
-            except Exception as e:  # noqa: BLE001
+                detail = await fetcher(object_id, portal_key=portal_obj.key)
+            except api_client.CKANError as e:
                 return f"Error: {e}"
             payload = detail.get("metrics") or {}
             if isinstance(payload, dict) and not payload:
@@ -89,7 +96,7 @@ def register_get_metrics_tool(mcp: FastMCP) -> None:
             if not isinstance(payload, dict):
                 return "Error: unexpected metrics payload from the portal."
 
-        header = f"Metrics for {object_type} '{object_id}':"
+        header = f"Metrics for {object_type} '{object_id}' on {portal_obj.name}:"
         text, values = _collect_metrics(payload)
         return ToolResult(
             content="\n".join([header, text]),

@@ -153,7 +153,7 @@ def test_dataset_parses_nested_resources_and_refs():
     assert len(dataset.resources) == 1
     assert dataset.organization is not None and dataset.organization.acronym == "ins"
     assert dataset.license is not None and dataset.license.title == "Licence Ouverte"
-    assert dataset.portal_url == "https://data.gouv.tn/fr/datasets/population/"
+    assert dataset.portal_url == "/fr/datasets/population/"
 
 
 def test_dataset_license_accepts_string_id():

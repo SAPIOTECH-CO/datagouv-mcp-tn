@@ -1,14 +1,6 @@
-"""Async client for the uData REST API of data.gouv.tn (API v1).
+"""Async client for the CKAN Action API (API v3) with multi-portal support.
 
-Hardened for production use:
-
-- per-request timeout (``REQUEST_TIMEOUT``);
-- connect-level retries handled by httpx itself;
-- request-level retries with exponential backoff on transient failures
-  (timeouts, connection errors, 429 and 5xx responses), honoring
-  ``Retry-After`` when the server sends one;
-- typed errors: :class:`UDataTimeoutError` and :class:`UDataUnavailableError`
-  both subclass :class:`UDataError`.
+Supports all Tunisian CKAN portals with per-portal configuration.
 """
 
 import asyncio
@@ -17,8 +9,9 @@ from typing import Any
 
 import httpx
 
-from datagouv_mcp_tn.helpers.config import get_settings
+from datagouv_mcp_tn.helpers.config import PortalSettings, get_settings
 from datagouv_mcp_tn.helpers.logging import MAIN_LOGGER_NAME
+from datagouv_mcp_tn.portals import get_portal
 
 logger = logging.getLogger(MAIN_LOGGER_NAME)
 
@@ -26,56 +19,62 @@ logger = logging.getLogger(MAIN_LOGGER_NAME)
 RETRYABLE_STATUS_CODES = frozenset({429, 500, 502, 503, 504})
 
 
-class UDataError(RuntimeError):
+class CKANError(RuntimeError):
+    """Base CKAN API error."""
+    def __init__(self, message: str, portal_key: str | None = None):
+        super().__init__(message)
+        self.portal_key = portal_key
+
+
+class CKANTimeoutError(CKANError):
     pass
 
 
-class UDataTimeoutError(UDataError):
+class CKANUnavailableError(CKANError):
     pass
 
 
-class UDataUnavailableError(UDataError):
-    pass
+# Per-portal HTTP client pool
+_http_clients: dict[str, httpx.AsyncClient] = {}
 
 
-_http: httpx.AsyncClient | None = None
-
-
-def _client() -> httpx.AsyncClient:
-    global _http
-    if _http is None:
+def _get_client(portal_key: str) -> httpx.AsyncClient:
+    """Get or create HTTP client for a portal."""
+    if portal_key not in _http_clients:
         settings = get_settings()
+        portal = get_portal(portal_key)
+        portal_settings = settings.get_portal_settings(portal)
+
         headers = {
             "Accept": "application/json",
             "User-Agent": "datagouv-mcp-tn/0.1.0",
         }
-        if settings.data_gouv_tn_api_key:
-            headers["X-API-KEY"] = settings.data_gouv_tn_api_key
-        _http = httpx.AsyncClient(
-            base_url=settings.data_gouv_tn_api_url.rstrip("/"),
+        if portal_settings.api_key:
+            headers["Authorization"] = portal_settings.api_key
+
+        _http_clients[portal_key] = httpx.AsyncClient(
+            base_url=portal_settings.api_url.rstrip("/"),
             headers=headers,
-            timeout=settings.request_timeout,
-            # Connect-level retries (only covers connection establishment).
-            transport=httpx.AsyncHTTPTransport(retries=1),
+            timeout=portal_settings.request_timeout,
+            transport=httpx.AsyncHTTPTransport(retries=1, verify=portal_settings.ssl_verify),
             follow_redirects=True,
         )
-    return _http
+    return _http_clients[portal_key]
 
 
 async def aclose() -> None:
-    global _http
-    if _http is not None:
-        await _http.aclose()
-        _http = None
+    """Close all HTTP clients."""
+    for client in _http_clients.values():
+        await client.aclose()
+    _http_clients.clear()
 
 
-def _retry_wait(response: httpx.Response | None, attempt: int) -> float:
-    """Seconds to wait before retry ``attempt + 1``.
-
-    Honors a numeric Retry-After header; otherwise uses exponential
-    backoff based on RETRY_BACKOFF_SECONDS.
-    """
-    settings = get_settings()
+def _retry_wait(
+    response: httpx.Response | None,
+    attempt: int,
+    portal_settings: PortalSettings,
+) -> float:
+    """Seconds to wait before retry ``attempt + 1``."""
     if response is not None:
         retry_after = response.headers.get("Retry-After")
         if retry_after is not None:
@@ -83,7 +82,7 @@ def _retry_wait(response: httpx.Response | None, attempt: int) -> float:
                 return max(0.0, float(retry_after))
             except ValueError:
                 pass
-    return settings.retry_backoff_seconds * (2**attempt)
+    return portal_settings.retry_backoff_seconds * (2**attempt)
 
 
 def _is_retryable(error: httpx.HTTPError) -> bool:
@@ -94,15 +93,20 @@ def _is_retryable(error: httpx.HTTPError) -> bool:
     return False
 
 
-def _to_udata_error(url: str, error: httpx.HTTPError) -> UDataError:
+def _to_ckan_error(url: str, error: httpx.HTTPError, portal_key: str) -> CKANError:
     if isinstance(error, httpx.TimeoutException):
-        timeout = get_settings().request_timeout
-        return UDataTimeoutError(
-            f"uData API timed out after {timeout}s for {url}. "
-            "The portal may be slow or unreachable."
+        settings = get_settings()
+        portal = get_portal(portal_key)
+        portal_settings = settings.get_portal_settings(portal)
+        return CKANTimeoutError(
+            f"CKAN API timed out after {portal_settings.request_timeout}s for {url}. "
+            "The portal may be slow or unreachable.",
+            portal_key=portal_key,
         )
     if isinstance(error, httpx.TransportError):
-        return UDataUnavailableError(f"uData API connection failed for {url}: {error}")
+        return CKANUnavailableError(
+            f"CKAN API connection failed for {url}: {error}", portal_key=portal_key
+        )
     if isinstance(error, httpx.HTTPStatusError):
         response = error.response
         hint = ""
@@ -110,143 +114,274 @@ def _to_udata_error(url: str, error: httpx.HTTPError) -> UDataError:
             hint = " Rate limited — try again in a moment."
         elif response.status_code >= 500:
             hint = " The portal may be temporarily unavailable."
-        return UDataError(
-            f"uData API returned {response.status_code} for {url}: {response.text[:200]}.{hint}"
+        return CKANError(
+            f"CKAN API returned {response.status_code} for {url}: {response.text[:200]}.{hint}",
+            portal_key=portal_key,
         )
-    return UDataError(f"uData API request failed for {url}: {error}")
+    return CKANError(f"CKAN API request failed for {url}: {error}", portal_key=portal_key)
 
 
-async def _get_json(path: str, params: dict[str, Any] | None = None) -> Any:
-    url = path
-    logger.debug("uData API GET %s params=%s", url, params)
+async def _call_action(
+    portal_key: str,
+    action: str,
+    params: dict[str, Any] | None = None,
+) -> Any:
+    """Call a CKAN action API endpoint on a specific portal."""
     settings = get_settings()
-    max_attempts = max(0, settings.request_max_retries) + 1
+    portal = get_portal(portal_key)
+    portal_settings = settings.get_portal_settings(portal)
 
-    last_error: UDataError | None = None
+    url = f"/action/{action}"
+    logger.debug("CKAN API portal=%s action=%s params=%s", portal_key, action, params)
+    max_attempts = max(0, portal_settings.request_max_retries) + 1
+
+    client = _get_client(portal_key)
+    last_error: CKANError | None = None
+
     for attempt in range(max_attempts):
         try:
-            response = await _client().get(url, params=params)
+            response = await client.get(url, params=params)
             response.raise_for_status()
         except httpx.HTTPError as exc:
-            udata_error = _to_udata_error(url, exc)
+            ckan_error = _to_ckan_error(url, exc, portal_key)
             if attempt < max_attempts - 1 and _is_retryable(exc):
                 wait = _retry_wait(
                     exc.response if isinstance(exc, httpx.HTTPStatusError) else None,
                     attempt,
+                    portal_settings,
                 )
                 logger.warning(
-                    "uData API attempt %d/%d failed (%s); retrying in %.1fs",
-                    attempt + 1,
-                    max_attempts,
-                    udata_error,
-                    wait,
+                    "CKAN API portal=%s attempt %d/%d failed (%s); retrying in %.1fs",
+                    portal_key, attempt + 1, max_attempts, ckan_error, wait,
                 )
                 await asyncio.sleep(wait)
                 continue
-            raise udata_error from exc
+            raise ckan_error from exc
 
         try:
-            return response.json()
+            data = response.json()
         except ValueError as exc:
-            raise UDataError(f"uData API returned invalid JSON for {url}") from exc
+            raise CKANError(
+                f"CKAN API returned invalid JSON for {url}", portal_key=portal_key
+            ) from exc
 
-    raise last_error or UDataError(f"uData API request failed for {url}")
+        if not data.get("success", False):
+            error_msg = data.get("error", {}).get("message", "Unknown error")
+            raise CKANError(f"CKAN API error for {action}: {error_msg}", portal_key=portal_key)
 
+        return data.get("result")
+
+    raise last_error or CKANError(f"CKAN API request failed for {action}", portal_key=portal_key)
+
+
+# --- High-level API functions (accept optional portal_key) ---
 
 async def search_datasets(
     query: str,
     page: int = 1,
     page_size: int = 20,
+    portal_key: str | None = None,
 ) -> dict[str, Any]:
     """Search datasets by keywords. Returns the raw paginated payload."""
-    return await _get_json(
-        "/datasets/",
-        params={"q": query, "page": page, "page_size": min(page_size, 100)},
+    portal = get_portal(portal_key)
+    result = await _call_action(
+        portal.key,
+        "package_search",
+        params={
+            "q": query,
+            "start": (page - 1) * page_size,
+            "rows": min(page_size, 100),
+        },
     )
+    return {
+        "total": result.get("count", 0),
+        "page": page,
+        "page_size": page_size,
+        "data": result.get("results", []),
+        "portal": portal.key,
+    }
 
 
 async def suggest_datasets(
     partial_query: str,
     size: int = 10,
+    portal_key: str | None = None,
 ) -> list[dict[str, Any]]:
     """Autocomplete dataset titles from a partial query."""
-    data = await _get_json(
-        "/datasets/suggest/",
-        params={"q": partial_query, "size": min(size, 50)},
+    portal = get_portal(portal_key)
+    result = await _call_action(
+        portal.key,
+        "package_search",
+        params={
+            "q": f"title:{partial_query}*",
+            "rows": min(size, 50),
+            "fl": "id,title",
+        },
     )
-    return data if isinstance(data, list) else []
+    return [{"id": pkg["id"], "title": pkg["title"]} for pkg in result.get("results", [])]
 
 
-async def get_dataset_details(dataset_id: str) -> dict[str, Any]:
-    """Fetch the complete dataset payload from the API v1 endpoint."""
-    return await _get_json(f"/datasets/{dataset_id}/")
+async def get_dataset_details(
+    dataset_id: str,
+    portal_key: str | None = None,
+) -> dict[str, Any]:
+    """Fetch the complete dataset payload from the CKAN API."""
+    portal = get_portal(portal_key)
+    return await _call_action(portal.key, "package_show", params={"id": dataset_id})
 
 
-async def get_resource_details(dataset_id: str, resource_id: str) -> dict[str, Any]:
-    """Locate a single resource inside a dataset payload.
-
-    The uData v1 API has no dedicated resource endpoint, so the dataset is
-    fetched and the resource extracted.
-    """
-    dataset = await get_dataset_details(dataset_id)
-    for resource in dataset.get("resources", []):
-        if resource.get("id") == resource_id:
-            return resource
-    raise UDataError(
-        f"Resource '{resource_id}' not found in dataset '{dataset_id}'."
-        " Use list_dataset_resources to see available resources."
-    )
+async def get_resource_details(
+    dataset_id: str,
+    resource_id: str,
+    portal_key: str | None = None,
+) -> dict[str, Any]:
+    """Fetch a single resource by ID."""
+    portal = get_portal(portal_key)
+    return await _call_action(portal.key, "resource_show", params={"id": resource_id})
 
 
 async def search_organizations(
     query: str,
     page: int = 1,
     page_size: int = 20,
+    portal_key: str | None = None,
 ) -> dict[str, Any]:
     """Search publishing organizations by keywords."""
-    return await _get_json(
-        "/organizations/",
-        params={"q": query, "page": page, "page_size": min(page_size, 100)},
+    portal = get_portal(portal_key)
+
+    # First try organization_list with local filtering
+    result = await _call_action(
+        portal.key,
+        "organization_list",
+        params={
+            "all_fields": True,
+            "limit": 1000,
+        },
     )
+    orgs = [
+        org for org in result
+        if query.lower() in org.get("name", "").lower()
+        or query.lower() in org.get("title", "").lower()
+        or query.lower() in org.get("description", "").lower()
+    ]
+
+    # If no results, fall back to searching datasets and extracting orgs
+    if not orgs:
+        import json as json_lib
+        pkg_result = await _call_action(
+            portal.key,
+            "package_search",
+            params={
+                "q": query,
+                "rows": 100,
+                "facet.field": json_lib.dumps(["organization"]),
+                "facet.limit": 50,
+            },
+        )
+        seen_orgs = set()
+        for pkg in pkg_result.get("results", []):
+            org = pkg.get("organization", {})
+            org_id = org.get("id")
+            if org_id and org_id not in seen_orgs:
+                seen_orgs.add(org_id)
+                orgs.append(org)
+
+    start = (page - 1) * page_size
+    end = start + page_size
+    return {
+        "total": len(orgs),
+        "page": page,
+        "page_size": page_size,
+        "data": orgs[start:end],
+        "portal": portal.key,
+    }
+
+
+async def get_organization_details(
+    organization_id: str,
+    portal_key: str | None = None,
+) -> dict[str, Any]:
+    """Fetch the complete organization payload."""
+    portal = get_portal(portal_key)
+    return await _call_action(portal.key, "organization_show", params={"id": organization_id})
 
 
 async def search_dataservices(
     query: str,
     page: int = 1,
     page_size: int = 20,
+    portal_key: str | None = None,
 ) -> dict[str, Any]:
     """Search dataservices (published APIs) by keywords."""
-    return await _get_json(
-        "/dataservices/",
-        params={"q": query, "page": page, "page_size": min(page_size, 100)},
+    portal = get_portal(portal_key)
+    result = await _call_action(
+        portal.key,
+        "package_search",
+        params={
+            "q": f"{query} type:dataservice",
+            "start": (page - 1) * page_size,
+            "rows": min(page_size, 100),
+        },
     )
+    return {
+        "total": result.get("count", 0),
+        "page": page,
+        "page_size": page_size,
+        "data": result.get("results", []),
+        "portal": portal.key,
+    }
 
 
-async def get_dataservice_details(dataservice_id: str) -> dict[str, Any]:
-    """Fetch the complete dataservice payload from the API v1 endpoint."""
-    return await _get_json(f"/dataservices/{dataservice_id}/")
+async def get_dataservice_details(
+    dataservice_id: str,
+    portal_key: str | None = None,
+) -> dict[str, Any]:
+    """Fetch the complete dataservice payload."""
+    portal = get_portal(portal_key)
+    return await _call_action(portal.key, "package_show", params={"id": dataservice_id})
 
 
-METRICS_OBJECT_TYPES = {
-    "dataset": "datasets",
-    "resource": "datasets",
-    "organization": "organizations",
-    "dataservice": "dataservices",
-    "reuse": "reuses",
-}
-
-
-async def get_object_metrics(object_type: str, object_id: str) -> dict[str, Any]:
+async def get_object_metrics(
+    object_type: str,
+    object_id: str,
+    portal_key: str | None = None,
+) -> dict[str, Any]:
     """Fetch metrics for a dataset/organization/dataservice/reuse."""
-    plural = METRICS_OBJECT_TYPES.get(object_type)
-    if plural is None:
-        raise ValueError(
-            f"Unsupported object type '{object_type}'. "
-            f"Supported: {', '.join(sorted(METRICS_OBJECT_TYPES))}."
+    portal = get_portal(portal_key)
+    if object_type == "dataset":
+        pkg = await _call_action(portal.key, "package_show", params={"id": object_id})
+        return {
+            "views": pkg.get("tracking_summary", {}).get("total", 0),
+            "downloads": sum(
+                r.get("tracking_summary", {}).get("total", 0) for r in pkg.get("resources", [])
+            ),
+            "portal": portal.key,
+        }
+    if object_type == "organization":
+        org = await _call_action(
+            portal.key, "organization_show", params={"id": object_id, "include_datasets": True}
         )
-    return await _get_json(f"/{plural}/{object_id}/metrics/")
+        return {
+            "dataset_count": len(org.get("packages", [])),
+            "portal": portal.key,
+        }
+    return {"portal": portal.key}
 
 
-async def get_organization_details(organization_id: str) -> dict[str, Any]:
-    """Fetch the complete organization payload."""
-    return await _get_json(f"/organizations/{organization_id}/")
+async def list_dataset_resources(
+    dataset_id: str,
+    portal_key: str | None = None,
+) -> list[dict[str, Any]]:
+    """List all resources for a dataset."""
+    portal = get_portal(portal_key)
+    pkg = await _call_action(portal.key, "package_show", params={"id": dataset_id})
+    return pkg.get("resources", [])
+
+
+async def get_group_details(
+    group_id: str,
+    portal_key: str | None = None,
+) -> dict[str, Any]:
+    """Fetch group details."""
+    portal = get_portal(portal_key)
+    return await _call_action(portal.key, "group_show", params={"id": group_id})

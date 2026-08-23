@@ -6,11 +6,12 @@ from fastmcp import FastMCP
 
 from datagouv_mcp_tn.helpers.config import Settings
 from datagouv_mcp_tn.helpers.logging_config import configure_logging
+from datagouv_mcp_tn.prompts import register_prompts
 from datagouv_mcp_tn.tools import register_tools
 
 
 def create_test_mcp() -> FastMCP:
-    """Create a fresh FastMCP instance for testing with all tools registered."""
+    """Create a fresh FastMCP instance for testing with all tools and prompts registered."""
     # Use test settings
     test_settings = Settings(
         strict_input_validation=True,
@@ -25,20 +26,21 @@ def create_test_mcp() -> FastMCP:
     configure_logging(test_settings.log_level)
 
     mcp = FastMCP(
-        "data.gouv.tn MCP server (test)",
+        "datagouv-mcp-tn MCP server (test)",
         instructions=(
-            "Tools for exploring the Tunisian open data portal (data.gouv.tn), "
-            "built on the uData platform. Start with search_datasets or "
-            "search_organizations, then drill into datasets with "
+            "Tools for exploring any CKAN open data portal. Start with "
+            "search_datasets or search_organizations, then drill into datasets with "
             "get_dataset_info and list_dataset_resources. Tabular resources can "
             "be analyzed in memory with download_and_parse_resource and "
-            "query_resource_data."
+            "query_resource_data. Use the `portal` parameter to target a specific "
+            "portal (default: configured default portal)."
         ),
         strict_input_validation=test_settings.strict_input_validation,
     )
 
-    # Register all tools
+    # Register all tools and prompts
     register_tools(mcp)
+    register_prompts(mcp)
 
     return mcp
 

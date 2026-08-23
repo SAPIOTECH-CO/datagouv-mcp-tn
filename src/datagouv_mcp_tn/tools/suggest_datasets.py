@@ -9,6 +9,7 @@ from datagouv_mcp_tn.helpers.i18n import (
 )
 from datagouv_mcp_tn.helpers.logging import log_tool
 from datagouv_mcp_tn.helpers.mcp_tool_defaults import READ_ONLY_EXTERNAL_API_TOOL
+from datagouv_mcp_tn.portals import get_portal
 
 
 def register_suggest_datasets_tool(mcp: FastMCP) -> None:
@@ -21,6 +22,7 @@ def register_suggest_datasets_tool(mcp: FastMCP) -> None:
         partial_query: str,
         size: int = 10,
         language: Language | None = None,
+        portal: str | None = None,
     ) -> str:
         """
         Autocomplete dataset titles from a partial query.
@@ -32,22 +34,29 @@ def register_suggest_datasets_tool(mcp: FastMCP) -> None:
             partial_query: Partial dataset title (a few letters suffice).
             size: Maximum number of suggestions (max 50).
             language: Output language (fr/ar/en); defaults to DEFAULT_LANGUAGE.
+            portal: Portal key (data-gov-tn, industrie, culture, transport, agridata).
+                   Defaults to configured default portal.
 
         Returns:
             A plain list of matching titles. Use search_datasets afterwards
             to get full IDs and metadata.
         """
         lang = resolve_language(language)
+        portal_obj = get_portal(portal)
 
         try:
-            suggestions = await api_client.suggest_datasets(partial_query, size=size)
-        except Exception as e:  # noqa: BLE001
+            suggestions = await api_client.suggest_datasets(
+                partial_query, size=size, portal_key=portal_obj.key
+            )
+        except api_client.CKANError as e:
             return f"Error: {e}"
 
         if not suggestions:
             return translate(MessageKey.NO_SUGGESTIONS, lang)
 
         lines = [translate(MessageKey.SUGGESTIONS_TITLE, lang, query=partial_query)]
+        lines.append(f"Portal: {portal_obj.name}")
+        lines.append("")
         for item in suggestions:
             title = item.get("title") if isinstance(item, dict) else item
             if title:

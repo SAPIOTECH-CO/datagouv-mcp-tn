@@ -2,7 +2,7 @@
 
 Companion to :mod:`file_parser`: while the parser turns tabular files into
 DataFrames, the inspector produces an LLM-friendly *description* of everything
-else found on data.gouv.tn (page counts, text previews, image dimensions,
+else found on agridata.tn (page counts, text previews, image dimensions,
 archive listings...). Heavy libraries (pypdf, python-docx, python-pptx,
 Pillow) are imported lazily on first use.
 
@@ -78,7 +78,7 @@ def _inspect_pdf(content: bytes) -> list[str]:
     for page in reader.pages:
         try:
             text_parts.append(page.extract_text() or "")
-        except Exception:  # noqa: BLE001 - malformed pages must not kill the summary
+        except Exception:
             continue
         if sum(len(part) for part in text_parts) >= TEXT_PREVIEW_CHARS:
             break
@@ -313,7 +313,7 @@ def _kmz_placemark_count(content: bytes) -> int | None:
                 ".//{http://www.opengis.net/kml/2.2}Placemark"
             ) or root.findall(".//Placemark")
             return len(placemarks)
-    except Exception:  # noqa: BLE001 - KMZ inspection is best-effort
+    except Exception:
         return None
 
 

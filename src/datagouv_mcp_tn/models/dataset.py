@@ -1,4 +1,4 @@
-"""Pydantic models for uData datasets."""
+"""Pydantic models for CKAN datasets."""
 
 from __future__ import annotations
 
@@ -58,6 +58,14 @@ class Dataset(BaseModel):
         # Parse resources individually so one malformed entry doesn't fail
         # the whole dataset (preserves the pre-models skip-and-continue UX).
         payload["resources"] = Resource.from_api_list(payload.get("resources"))
+        # CKAN returns tags as objects with display_name, extract the names
+        tags = payload.get("tags")
+        if isinstance(tags, list):
+            payload["tags"] = [
+                tag.get("display_name") or tag.get("name") or ""
+                for tag in tags
+                if isinstance(tag, dict)
+            ]
         return cls.model_validate(payload)
 
     @property
@@ -66,8 +74,17 @@ class Dataset(BaseModel):
 
     @property
     def portal_url(self) -> str | None:
+        """Return the dataset's portal URL.
+
+        If ``page`` is an absolute URL, return it as-is.
+        If ``page`` is a relative path, return it as-is (the caller should
+        resolve it against the portal's ``catalog_url``).
+        Returns ``None`` when no URL can be constructed without portal context.
+        """
         if self.page:
-            return f"https://data.gouv.tn{self.page}" if self.page.startswith("/") else self.page
+            if self.page.startswith(("http://", "https://")):
+                return self.page
+            return self.page
         if self.slug:
-            return f"https://data.gouv.tn/fr/datasets/{self.slug}"
+            return None  # slug alone is not enough to build a full URL without portal context
         return None

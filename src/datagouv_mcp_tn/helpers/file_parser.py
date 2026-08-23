@@ -25,7 +25,7 @@ MAX_PREVIEW_CELL_CHARS = 60
 
 SUPPORTED_FORMATS = ("csv", "xls", "xlsx", "ods", "json", "geojson")
 
-# Canonical names for the format/mime strings actually found on data.gouv.tn,
+# Canonical names for the format/mime strings actually found on agridata.tn,
 # including messy ones ('XLS', '.jpg', 'word', 'test'...). Anything not listed
 # here (PDF, images, archives, API refs...) is reported as non-tabular.
 _FORMAT_ALIASES = {
@@ -72,7 +72,7 @@ def is_tabular_filename(filename: str) -> bool:
 def decode_text_best_effort(content: bytes) -> str:
     """Decode text trying UTF-8 first, then cp1252/latin-1 for legacy files.
 
-    data.gouv.tn still hosts Windows-1252/Latin-1 documents; decoding those
+    agridata.tn still hosts Windows-1252/Latin-1 documents; decoding those
     as UTF-8 would fill previews with U+FFFD replacement characters.
     """
     best: tuple[str, float] | None = None
@@ -227,10 +227,10 @@ def parse_tabular(content: bytes, fmt: str) -> ParseResult:
         try:
             frame = pd.read_csv(buffer, sep=None, engine="python")
         except UnicodeDecodeError:
-            # Legacy cp1252/latin-1 files are common on data.gouv.tn.
+            # Legacy cp1252/latin-1 files are common on agridata.tn.
             buffer.seek(0)
             frame = pd.read_csv(buffer, sep=None, engine="python", encoding="cp1252")
-        except Exception:  # noqa: BLE001 - fall back to plain comma parsing
+        except Exception:
             buffer.seek(0)
             frame = pd.read_csv(buffer)
     elif fmt in _EXCEL_ENGINES:

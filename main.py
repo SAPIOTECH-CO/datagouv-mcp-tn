@@ -1,4 +1,4 @@
-"""Entry point for the data.gouv.tn MCP server.
+"""Entry point for the CKAN open data MCP server.
 
 Transport is selected with the FASTMCP_TRANSPORT environment variable:
 
@@ -12,13 +12,14 @@ Transport is selected with the FASTMCP_TRANSPORT environment variable:
 All logs are emitted as structured JSON (see helpers/logging_config.py).
 """
 
+from __future__ import annotations
+
 import logging
 import os
 
 from datagouv_mcp_tn.helpers.config import get_settings
 from datagouv_mcp_tn.helpers.logging_config import (
     MAIN_LOGGER_NAME,
-    UVICORN_LOGGING_CONFIG,
     configure_logging,
 )
 from datagouv_mcp_tn.server import mcp
@@ -26,6 +27,20 @@ from datagouv_mcp_tn.server import mcp
 SUPPORTED_TRANSPORTS = ("stdio", "http", "sse")
 
 logger = logging.getLogger(MAIN_LOGGER_NAME)
+
+
+def _get_run_kwargs(transport: str) -> dict:
+    """Build kwargs for mcp.run() based on transport."""
+    if transport == "stdio":
+        return {"transport": "stdio"}
+
+    host = os.getenv("FASTMCP_HOST", "127.0.0.1")
+    port = int(os.getenv("FASTMCP_PORT", "8000"))
+    return {
+        "transport": transport,
+        "host": host,
+        "port": port,
+    }
 
 
 def main() -> None:
@@ -40,21 +55,13 @@ def main() -> None:
             f"Valid values: {', '.join(SUPPORTED_TRANSPORTS)}."
         )
 
-    if transport == "stdio":
-        mcp.run(transport="stdio")
-    else:
+    if transport != "stdio":
         logger.info(
-            "Starting data.gouv.tn MCP server",
+            "Starting CKAN open data MCP server",
             extra={"transport": transport},
         )
-        mcp.run(
-            transport=transport,
-            host=os.getenv("FASTMCP_HOST", "127.0.0.1"),
-            port=int(os.getenv("FASTMCP_PORT", "8000")),
-            # FastMCP forwards these as uvicorn.Config(**kwargs);
-            # log_config must be a dictConfig-style mapping.
-            uvicorn_config={"log_config": UVICORN_LOGGING_CONFIG},
-        )
+
+    mcp.run(**_get_run_kwargs(transport))
 
 
 if __name__ == "__main__":

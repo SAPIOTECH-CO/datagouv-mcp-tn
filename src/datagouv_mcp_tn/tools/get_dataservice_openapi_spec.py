@@ -10,6 +10,7 @@ from datagouv_mcp_tn.helpers.logging import log_tool
 from datagouv_mcp_tn.helpers.mcp_tool_defaults import READ_ONLY_EXTERNAL_API_TOOL
 from datagouv_mcp_tn.helpers.prefab_views import openapi_endpoints_table
 from datagouv_mcp_tn.helpers.validators import validate_openapi_args
+from datagouv_mcp_tn.portals import get_portal
 
 _MAX_SPEC_MB = 5  # specs are small; cap well under the download limit
 _MAX_OPERATIONS_LISTED = 25
@@ -94,23 +95,30 @@ def register_get_dataservice_openapi_spec_tool(mcp: FastMCP) -> None:
         app=True,
     )
     @log_tool
-    async def get_dataservice_openapi_spec(dataservice_id: str) -> str | ToolResult:
+    async def get_dataservice_openapi_spec(
+    dataservice_id: str, portal: str | None = None
+) -> str | ToolResult:
         """
         Fetch and summarize the OpenAPI/Swagger specification of a dataservice.
 
         Args:
             dataservice_id: Dataservice ID (from search_dataservices results).
+            portal: Portal key (data-gov-tn, industrie, culture, transport, agridata).
+                   Defaults to configured default portal.
 
         Returns:
             Spec title/version, server URL, path & operation counts, and a
             list of operations. Raw YAML is not parsed; JSON specs only.
         """
+        portal_obj = get_portal(portal)
         # Validate and sanitize input
         dataservice_id = validate_openapi_args(dataservice_id)
 
         try:
-            raw = await api_client.get_dataservice_details(dataservice_id)
-        except Exception as e:  # noqa: BLE001
+            raw = await api_client.get_dataservice_details(
+                dataservice_id, portal_key=portal_obj.key
+            )
+        except api_client.CKANError as e:
             return f"Error: {e}"
 
         inline_spec = raw.get("openapi_spec")
@@ -134,7 +142,7 @@ def register_get_dataservice_openapi_spec_tool(mcp: FastMCP) -> None:
                     f"Error: could not parse the OpenAPI spec at {spec_url} ({e}). "
                     "YAML-only specs are not supported; open the URL directly."
                 )
-            except Exception as e:  # noqa: BLE001
+            except Exception as e:
                 return f"Error: failed to download the OpenAPI spec from {spec_url}: {e}"
 
         text = "\n".join(_summarize_spec(spec))

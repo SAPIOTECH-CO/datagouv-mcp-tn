@@ -5,6 +5,7 @@ from datagouv_mcp_tn.helpers import api_client
 from datagouv_mcp_tn.helpers.logging import log_tool
 from datagouv_mcp_tn.helpers.mcp_tool_defaults import READ_ONLY_EXTERNAL_API_TOOL
 from datagouv_mcp_tn.models.dataset import Dataset
+from datagouv_mcp_tn.portals import get_portal
 
 
 def register_get_dataset_info_tool(mcp: FastMCP) -> None:
@@ -13,29 +14,33 @@ def register_get_dataset_info_tool(mcp: FastMCP) -> None:
         annotations=READ_ONLY_EXTERNAL_API_TOOL,
     )
     @log_tool
-    async def get_dataset_info(dataset_id: str) -> str:
+    async def get_dataset_info(dataset_id: str, portal: str | None = None) -> str:
         """
-        Get full metadata for a single dataset on data.gouv.tn.
+        Get full metadata for a single dataset from a Tunisian CKAN portal.
 
         Args:
             dataset_id: Dataset ID or slug (from search_datasets results).
+            portal: Portal key (data-gov-tn, industrie, culture, transport, agridata).
+                   Defaults to configured default portal.
 
         Returns:
             Title, description, tags, organization, license, and update date.
             Next step: use list_dataset_resources to see the files.
         """
+        portal_obj = get_portal(portal)
         try:
-            raw = await api_client.get_dataset_details(dataset_id)
-        except Exception as e:  # noqa: BLE001
+            raw = await api_client.get_dataset_details(dataset_id, portal_key=portal_obj.key)
+        except api_client.CKANError as e:
             return f"Error: {e}"
 
         try:
             dataset = Dataset.from_api(raw)
         except ValidationError:
-            return f"Error: Dataset with ID '{dataset_id}' not found."
+            return f"Error: Dataset with ID '{dataset_id}' not found on {portal_obj.name}."
 
         lines = [f"Dataset: {dataset.display_title}"]
         lines.append(f"ID: {dataset.id}")
+        lines.append(f"Portal: {portal_obj.name}")
         if dataset.slug:
             lines.append(f"Slug: {dataset.slug}")
         if dataset.description:
