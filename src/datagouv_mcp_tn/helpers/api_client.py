@@ -50,9 +50,10 @@ async def _get_json(path: str, params: dict[str, Any] | None = None) -> Any:
         response = await _client().get(url, params=params)
         response.raise_for_status()
     except httpx.HTTPStatusError as exc:
+        failed_response = exc.response
         raise UDataError(
-            f"uData API returned {response.status_code} for {url}: "
-            f"{response.text[:200]}"
+            f"uData API returned {failed_response.status_code} for {url}: "
+            f"{failed_response.text[:200]}"
         ) from exc
     except httpx.HTTPError as exc:
         raise UDataError(f"uData API request failed for {url}: {exc}") from exc

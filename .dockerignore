@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+*.egg-info/
+build/
+dist/
+
+# Environment / secrets
+.env
+
+# Tooling
+.pytest_cache/
+.ruff_cache/
+.gitignore
+.claude/
+.cursor/
+.agents/skills/.*/
+
+# Git
+.git/
+.gitattributes
+
+# Docs & CI (not needed in the image)
+# README.md is needed: pyproject.toml readme = "README.md"
+LICENSE
+.pre-commit-config.yaml
+docker-compose.yml
+Dockerfile

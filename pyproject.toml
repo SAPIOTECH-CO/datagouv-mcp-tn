@@ -8,6 +8,7 @@ dependencies = [
     "fastmcp>=3.4.7",
     "httpx>=0.28.1",
     "pydantic-settings>=2.15.0",
+    "python-json-logger>=4.2.0",
 ]
 
 [dependency-groups]
@@ -26,3 +27,17 @@ packages = ["src/datagouv_mcp_tn"]
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort (import sorting)
+    "UP",  # pyupgrade
+    "B",   # bugbear
+]

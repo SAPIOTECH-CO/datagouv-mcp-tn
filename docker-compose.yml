@@ -1,0 +1,17 @@
+services:
+  datagouv-mcp-tn:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: datagouv-mcp-tn:latest
+    ports:
+      - "${FASTMCP_PORT:-8000}:${FASTMCP_PORT:-8000}"
+    environment:
+      - FASTMCP_TRANSPORT=${FASTMCP_TRANSPORT:-http}
+      - FASTMCP_HOST=${FASTMCP_HOST:-0.0.0.0}
+      - FASTMCP_PORT=${FASTMCP_PORT:-8000}
+      - DATA_GOUV_TN_API_URL=${DATA_GOUV_TN_API_URL:-https://data.gouv.tn/api/1}
+      - DATA_GOUV_TN_API_KEY=${DATA_GOUV_TN_API_KEY}
+      - REQUEST_TIMEOUT=${REQUEST_TIMEOUT:-30}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    restart: unless-stopped

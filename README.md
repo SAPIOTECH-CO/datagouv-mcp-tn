@@ -225,6 +225,36 @@ Copy `.env.example` to `.env` and adjust. All variables are optional:
 | `REQUEST_TIMEOUT` | `30` | HTTP timeout (seconds) for portal API calls |
 | `LOG_LEVEL` | `INFO` | Logging verbosity |
 
+## Docker
+
+Build and run locally with Docker Compose:
+
+```bash
+docker compose up --build
+```
+
+The container serves the streamable HTTP transport on `0.0.0.0:${FASTMCP_PORT:-8000}` (`/mcp` + `/health`), with a built-in healthcheck. Configure via env vars in `docker-compose.yml` or a `.env` file next to it.
+
+Manual build:
+
+```bash
+docker build -t datagouv-mcp-tn .
+docker run -p 8000:8000 datagouv-mcp-tn
+```
+
+## Logging
+
+All logs (app + uvicorn access logs) are emitted as single-line JSON for log aggregation pipelines, configured in `src/datagouv_mcp_tn/helpers/logging_config.py`. Verbosity is controlled by `LOG_LEVEL`.
+
+## Git hooks
+
+[pre-commit](https://pre-commit.com) runs file hygiene checks and [ruff](https://docs.astral.sh/ruff/) lint + format:
+
+```bash
+uvx pre-commit install     # activate on git commit
+uvx pre-commit run -a      # run on all files
+```
+
 ## Dependencies
 
 ```bash

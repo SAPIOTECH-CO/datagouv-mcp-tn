@@ -37,8 +37,19 @@ DATASET_DETAIL = {
     "last_update": "2026-01-15T00:00:00",
     "organization": {"name": "INS"},
     "resources": [
-        {"id": "res-1", "title": "pop.csv", "format": "csv", "filesize": 2048, "url": "https://example.com/pop.csv"},
-        {"id": "res-2", "title": "notes.pdf", "format": "pdf", "url": "https://example.com/notes.pdf"},
+        {
+            "id": "res-1",
+            "title": "pop.csv",
+            "format": "csv",
+            "filesize": 2048,
+            "url": "https://example.com/pop.csv",
+        },
+        {
+            "id": "res-2",
+            "title": "notes.pdf",
+            "format": "pdf",
+            "url": "https://example.com/notes.pdf",
+        },
     ],
 }
 
@@ -85,7 +96,9 @@ async def test_search_datasets_reports_empty_results():
 
 
 async def test_get_dataset_info_shows_metadata_and_next_step():
-    with patch.object(api_client, "get_dataset_details", new=AsyncMock(return_value=DATASET_DETAIL)):
+    with patch.object(
+        api_client, "get_dataset_details", new=AsyncMock(return_value=DATASET_DETAIL)
+    ):
         text = await call_tool("get_dataset_info", {"dataset_id": "abc-1"})
     assert "Population data for Tunisia." in text
     assert "Organization: INS" in text
@@ -101,7 +114,9 @@ async def test_get_dataset_info_handles_missing_dataset():
 
 
 async def test_list_dataset_resources_lists_files_with_sizes():
-    with patch.object(api_client, "get_dataset_details", new=AsyncMock(return_value=DATASET_DETAIL)):
+    with patch.object(
+        api_client, "get_dataset_details", new=AsyncMock(return_value=DATASET_DETAIL)
+    ):
         text = await call_tool("list_dataset_resources", {"dataset_id": "abc-1"})
     assert "Total resources: 2" in text
     assert "Resource ID: res-1" in text
@@ -111,7 +126,9 @@ async def test_list_dataset_resources_lists_files_with_sizes():
 
 
 async def test_get_resource_info_returns_checksum_and_url():
-    with patch.object(api_client, "get_resource_details", new=AsyncMock(return_value=RESOURCE_DETAIL)):
+    with patch.object(
+        api_client, "get_resource_details", new=AsyncMock(return_value=RESOURCE_DETAIL)
+    ):
         text = await call_tool("get_resource_info", {"dataset_id": "abc-1", "resource_id": "res-1"})
     assert "pop.csv" in text
     assert "Checksum (sha1): deadbeef" in text

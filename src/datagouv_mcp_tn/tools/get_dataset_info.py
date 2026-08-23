@@ -45,7 +45,9 @@ def register_get_dataset_info_tool(mcp: FastMCP) -> None:
         if tags := dataset.get("tags"):
             lines.append(f"Tags: {', '.join(tags)}")
         if dataset.get("license"):
-            lines.append(f"License: {dataset['license'].get('title') or dataset['license'].get('id')}")
+            lines.append(
+                f"License: {dataset['license'].get('title') or dataset['license'].get('id')}"
+            )
         if dataset.get("last_update"):
             lines.append(f"Last update: {dataset['last_update']}")
         resources = dataset.get("resources", [])

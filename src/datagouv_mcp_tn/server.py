@@ -1,6 +1,6 @@
+from fastmcp import FastMCP
 from starlette.requests import Request
 from starlette.responses import JSONResponse
-from fastmcp import FastMCP
 
 from datagouv_mcp_tn.tools import register_tools
 

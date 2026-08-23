@@ -1,10 +1,10 @@
+import logging
+
 from fastmcp import FastMCP
 
 from datagouv_mcp_tn.helpers import api_client
 from datagouv_mcp_tn.helpers.logging import MAIN_LOGGER_NAME, log_tool
 from datagouv_mcp_tn.helpers.mcp_tool_defaults import READ_ONLY_EXTERNAL_API_TOOL
-
-import logging
 
 logger = logging.getLogger(MAIN_LOGGER_NAME)
 
@@ -45,7 +45,9 @@ def register_search_datasets_tool(mcp: FastMCP) -> None:
         total = data.get("total", len(results))
         lines = [
             f"Found {total} dataset(s) matching '{query}'",
-            f"Page {data.get('page', page)} of results (page size {data.get('page_size', page_size)})",
+            "Page {} of results (page size {})".format(
+                data.get("page", page), data.get("page_size", page_size)
+            ),
             "",
         ]
 
