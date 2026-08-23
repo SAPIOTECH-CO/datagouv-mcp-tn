@@ -17,6 +17,7 @@ import logging
 import re
 import xml.etree.ElementTree as ET
 import zipfile
+from typing import Any
 
 from datagouv_mcp_tn.helpers.file_parser import (
     decode_text_best_effort,
@@ -66,7 +67,7 @@ def _inspect_pdf(content: bytes) -> list[str]:
 
     reader = PdfReader(io.BytesIO(content))
     lines = [f"Pages: {len(reader.pages)}"]
-    metadata = reader.metadata or {}
+    metadata: dict[str, Any] = reader.metadata or {}
     title = str(metadata.get("/Title") or "").strip()
     author = str(metadata.get("/Author") or "").strip()
     if title:

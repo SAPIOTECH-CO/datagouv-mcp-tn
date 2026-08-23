@@ -1,4 +1,5 @@
 from functools import lru_cache
+from typing import Any
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -80,35 +81,42 @@ class Settings(BaseSettings):
         # Check for per-portal env vars (e.g., PORTAL_DATA_GOV_TN_API_KEY)
         import os
         prefix = f"PORTAL_{portal.key.upper().replace('-', '_')}_"
-        overrides = {}
+        overrides: dict[str, Any] = {}
         for key in ("api_url", "api_key", "request_timeout", "request_max_retries",
                     "retry_backoff_seconds", "download_timeout", "max_download_size_mb",
                     "ssl_verify"):
             env_key = f"{prefix}{key.upper()}"
             if env_key in os.environ:
-                val = os.environ[env_key]
+                raw_val = os.environ[env_key]
                 # Type conversion
                 if key in ("request_timeout", "retry_backoff_seconds", "download_timeout"):
-                    val = float(val)
+                    converted: Any = float(raw_val)
                 elif key in ("request_max_retries", "max_download_size_mb"):
-                    val = int(val)
-                overrides[key] = val
+                    converted = int(raw_val)
+                elif key == "ssl_verify":
+                    converted = raw_val.lower() != "false"
+                else:
+                    converted = raw_val
+                overrides[key] = converted
 
         # Use portal's default API URL if not overridden
         if "api_url" not in overrides:
             overrides["api_url"] = portal.api_url
 
+        # Cast overrides to proper types for PortalSettings
         return PortalSettings(
             api_url=overrides.get("api_url", portal.api_url),
             api_key=overrides.get("api_key"),
-            request_timeout=overrides.get("request_timeout", self.request_timeout),
-            request_max_retries=overrides.get("request_max_retries", self.request_max_retries),
-            retry_backoff_seconds=overrides.get(
+            request_timeout=float(overrides.get("request_timeout", self.request_timeout)),
+            request_max_retries=int(overrides.get("request_max_retries", self.request_max_retries)),
+            retry_backoff_seconds=float(overrides.get(
                 "retry_backoff_seconds", self.retry_backoff_seconds
+            )),
+            download_timeout=float(overrides.get("download_timeout", self.download_timeout)),
+            max_download_size_mb=int(
+                overrides.get("max_download_size_mb", self.max_download_size_mb)
             ),
-            download_timeout=overrides.get("download_timeout", self.download_timeout),
-            max_download_size_mb=overrides.get("max_download_size_mb", self.max_download_size_mb),
-            ssl_verify=overrides.get("ssl_verify", portal.ssl_verify),
+            ssl_verify=bool(overrides.get("ssl_verify", portal.ssl_verify)),
         )
 
     def get_default_portal(self) -> Portal:

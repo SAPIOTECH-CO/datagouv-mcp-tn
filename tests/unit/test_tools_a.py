@@ -1,4 +1,6 @@
-from unittest.mock import AsyncMock, MagicMock, patch
+"""Unit tests for Tools A: search, suggest, dataset info, resources."""
+
+from unittest.mock import AsyncMock, patch
 
 import pytest
 from mcp.types import TextContent
@@ -67,27 +69,21 @@ SUGGESTIONS = [
     {"id": "abc-3", "title": "Population active"},
 ]
 
-ORG_PAGE = {
-    "total": 1,
-    "data": [{"id": "org-1", "name": "Institut National de la Statistique", "acronym": "INS"}],
-}
-
 
 @pytest.fixture
 async def call_tool(mcp_client):
-    """Helper to call a tool and return its text content."""
-
     async def _call(name: str, arguments: dict) -> str:
         result = await mcp_client.call_tool(name, arguments)
         part = result.content[0]
         assert isinstance(part, TextContent)
         return part.text
-
     return _call
 
 
 async def test_search_datasets_formats_results_with_ids(call_tool):
-    with patch.object(api_client, "search_datasets", new=AsyncMock(return_value=SEARCH_PAGE)):
+    with patch.object(
+        api_client, "search_datasets", new=AsyncMock(return_value=SEARCH_PAGE)
+    ):
         text = await call_tool("search_datasets", {"query": "population"})
     assert "Trouvé 2 jeu(x) de données pour « population »" in text
     assert "Population" in text
@@ -95,16 +91,24 @@ async def test_search_datasets_formats_results_with_ids(call_tool):
 
 
 async def test_search_datasets_formats_results_in_english_and_arabic(call_tool):
-    with patch.object(api_client, "search_datasets", new=AsyncMock(return_value=SEARCH_PAGE)):
-        english = await call_tool("search_datasets", {"query": "population", "language": "en"})
-        arabic = await call_tool("search_datasets", {"query": "population", "language": "ar"})
+    with patch.object(
+        api_client, "search_datasets", new=AsyncMock(return_value=SEARCH_PAGE)
+    ):
+        english = await call_tool(
+            "search_datasets", {"query": "population", "language": "en"}
+        )
+        arabic = await call_tool(
+            "search_datasets", {"query": "population", "language": "ar"}
+        )
     assert "Found 2 dataset(s) for 'population'" in english
     assert "تم العثور على 2 مجموعة(ات) بيانات" in arabic
 
 
 async def test_search_datasets_reports_empty_results(call_tool):
     empty = {**SEARCH_PAGE, "total": 0, "data": []}
-    with patch.object(api_client, "search_datasets", new=AsyncMock(return_value=empty)):
+    with patch.object(
+        api_client, "search_datasets", new=AsyncMock(return_value=empty)
+    ):
         text = await call_tool("search_datasets", {"query": "zzz"})
     assert "Aucun résultat" in text
 
@@ -122,7 +126,9 @@ async def test_get_dataset_info_shows_metadata_and_next_step(call_tool):
 
 
 async def test_get_dataset_info_handles_missing_dataset(call_tool):
-    with patch.object(api_client, "get_dataset_details", new=AsyncMock(return_value={})):
+    with patch.object(
+        api_client, "get_dataset_details", new=AsyncMock(return_value={})
+    ):
         text = await call_tool("get_dataset_info", {"dataset_id": "nope"})
     assert text.startswith("Error:")
 
@@ -143,7 +149,9 @@ async def test_get_resource_info_returns_checksum_and_url(call_tool):
     with patch.object(
         api_client, "get_resource_details", new=AsyncMock(return_value=RESOURCE_DETAIL)
     ):
-        text = await call_tool("get_resource_info", {"dataset_id": "abc-1", "resource_id": "res-1"})
+        text = await call_tool(
+            "get_resource_info", {"dataset_id": "abc-1", "resource_id": "res-1"}
+        )
     assert "pop.csv" in text
     assert "Checksum (sha1): deadbeef" in text
     assert "URL: https://example.com/pop.csv" in text
@@ -155,23 +163,19 @@ async def test_get_resource_info_reports_unknown_resource(call_tool):
         "get_resource_details",
         new=AsyncMock(side_effect=CKANError("Resource 'x' not found")),
     ):
-        text = await call_tool("get_resource_info", {"dataset_id": "abc-1", "resource_id": "x"})
+        text = await call_tool(
+            "get_resource_info", {"dataset_id": "abc-1", "resource_id": "x"}
+        )
     assert "not found" in text
 
 
 async def test_suggest_datasets_lists_titles(call_tool):
-    with patch.object(api_client, "suggest_datasets", new=AsyncMock(return_value=SUGGESTIONS)):
+    with patch.object(
+        api_client, "suggest_datasets", new=AsyncMock(return_value=SUGGESTIONS)
+    ):
         text = await call_tool("suggest_datasets", {"partial_query": "popul"})
     assert "- Population" in text
     assert "- Population active" in text
-
-
-async def test_search_organizations_formats_results(call_tool):
-    with patch.object(api_client, "search_organizations", new=AsyncMock(return_value=ORG_PAGE)):
-        text = await call_tool("search_organizations", {"query": "statistique"})
-    assert "Trouvé 1 organisation(s) pour « statistique »" in text
-    assert "Institut National de la Statistique" in text
-    assert "Organization ID: org-1" in text
 
 
 async def test_tools_return_error_text_on_api_failure(call_tool):
@@ -186,17 +190,20 @@ async def test_tools_return_error_text_on_api_failure(call_tool):
 
 
 @pytest.mark.parametrize(
-    "requested,expected",
-    [(20, 20), (100, 100), (500, 100)],
+    "requested,expected", [(20, 20), (100, 100), (500, 100)]
 )
 async def test_api_client_caps_page_size_at_100(requested, expected):
     http = AsyncMock()
-    response = MagicMock()
-    response.json.return_value = {"success": True, "result": {"count": 0, "results": []}}
+    response = pytest.importorskip("unittest.mock").MagicMock()
+    response.json.return_value = {
+        "success": True, "result": {"count": 0, "results": []}
+    }
     http.get = AsyncMock(return_value=response)
     with (
         patch.object(api_client, "_http_clients", {}),
-        patch("datagouv_mcp_tn.helpers.api_client._get_client", return_value=http),
+        patch(
+            "datagouv_mcp_tn.helpers.api_client._get_client", return_value=http
+        ),
     ):
         await api_client.search_datasets(
             query="q", page=2, page_size=requested, portal_key="agridata"

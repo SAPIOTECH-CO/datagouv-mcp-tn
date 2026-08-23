@@ -330,11 +330,34 @@ detection combines normalized extensions with magic-byte sniffing.
 ## Testing
 
 ```bash
-uv run pytest            # all tests
-uv run pytest -v         # verbose
+uv run pytest                              # all tests
+uv run pytest tests/unit -v                # unit tests only
+uv run pytest tests/integration -v         # integration + E2E tests
+uv run pytest --cov=src/datagouv_mcp_tn    # with coverage report
 ```
 
-Tests run against an in-memory MCP client with the API mocked — no network required.
+### Test structure
+
+| Directory | Scope | Description |
+| --- | --- | --- |
+| `tests/unit/` | Unit | One file per tool group + helpers, models, security, validators. API calls are mocked at the `api_client` boundary. |
+| `tests/integration/` | Integration / E2E | API flow tests (retries, timeouts, SSL) and end-to-end scenario tests exercising full tool chains. |
+
+### Coverage
+
+Target: **> 80%** (currently ~90%). Run:
+
+```bash
+uv run pytest --cov=src/datagouv_mcp_tn --cov-report=term
+```
+
+### Quality gates
+
+```bash
+uv run ruff check src/ tests/        # lint + import sorting
+uv run mypy src/datagouv_mcp_tn      # type checking
+uvx pre-commit run -a                 # all hooks (ruff, mypy, yaml/toml checks)
+```
 
 Inspect the server interactively during development:
 

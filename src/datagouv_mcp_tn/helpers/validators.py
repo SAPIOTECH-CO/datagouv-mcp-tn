@@ -320,6 +320,7 @@ async def validate_against_dataframe(
     validation pass) or an already-parsed list (if the validator already ran).
     """
     # If columns is already a list, just validate against available columns
+    validated_columns: list[str] | None
     if isinstance(columns, list):
         validated_columns = columns
         for col in validated_columns:

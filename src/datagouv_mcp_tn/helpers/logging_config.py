@@ -122,7 +122,7 @@ class _SecretsAndPIIFilter(logging.Filter):
 
         # Sanitize args if they're strings
         if record.args:
-            sanitized_args = []
+            sanitized_args: list[object] = []
             for arg in record.args:
                 if isinstance(arg, str):
                     sanitized_args.append(_sanitize_text(arg))

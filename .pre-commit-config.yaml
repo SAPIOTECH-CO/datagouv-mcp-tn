@@ -20,3 +20,25 @@ repos:
         args: [--fix, --exit-non-zero-on-fix]
       # Run the formatter
       - id: ruff-format
+
+  # https://mypy.readthedocs.io/
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.16.0
+    hooks:
+      - id: mypy
+        additional_dependencies: [
+          "fastmcp>=3.4.7",
+          "httpx>=0.28.1",
+          "odfpy>=1.4.1",
+          "openpyxl>=3.1.5",
+          "pandas>=3.0.5",
+          "pillow>=12.3.0",
+          "prefab-ui>=0.20.2",
+          "pydantic-settings>=2.15.0",
+          "pypdf>=6.16.1",
+          "python-docx>=1.2.0",
+          "python-json-logger>=4.2.0",
+          "python-pptx>=1.0.2",
+          "scrapy>=2.18.0",
+          "xlrd>=2.0.2",
+        ]
