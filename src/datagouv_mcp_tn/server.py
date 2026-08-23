@@ -9,6 +9,12 @@ from datagouv_mcp_tn.helpers.cors import (
 )
 from datagouv_mcp_tn.helpers.logging_config import configure_logging
 from datagouv_mcp_tn.helpers.rate_limit import build_rate_limit_middleware
+from datagouv_mcp_tn.helpers.resources import (
+    get_api_docs,
+    get_config,
+    get_portals_registry,
+    get_schema,
+)
 from datagouv_mcp_tn.tools import register_tools
 
 # Configure JSON logging with secrets/PII sanitization before anything else
@@ -50,6 +56,33 @@ async def health_check(request: Request) -> JSONResponse:
     return JSONResponse({"status": "ok", "service": "datagouv-mcp-tn"})
 
 
+# --- MCP Resources (read-only, accessible via ckan:// URIs) ---
+
+
+@mcp.resource("ckan://api/docs", name="CKAN API Documentation")
+async def resource_api_docs() -> str:
+    """CKAN API documentation and endpoint reference."""
+    return await get_api_docs()
+
+
+@mcp.resource("ckan://config", name="Server Configuration")
+async def resource_config() -> str:
+    """Current server configuration (JSON)."""
+    return await get_config()
+
+
+@mcp.resource("ckan://schema", name="CKAN API Schema Reference")
+async def resource_schema() -> str:
+    """CKAN API schema reference (abridged)."""
+    return await get_schema()
+
+
+@mcp.resource("ckan://portals", name="Tunisian CKAN Portals Registry")
+async def resource_portals() -> str:
+    """Known Tunisian CKAN portals registry."""
+    return await get_portals_registry()
+
+
 register_tools(mcp)
 
 # Opt-in Generative UI
@@ -77,9 +110,31 @@ app = _create_http_app()
 # Users can also call `mcp.run(...)` with the protection config:
 if __name__ == "__main__":
     host_config = get_host_origin_protection_config()
-    mcp.run(
-        transport="http",
-        host="0.0.0.0",
-        port=8000,
-        **host_config,
-    )
+
+    # Default to stdio for CLI/IDE integration (opencode, Claude Desktop, etc.)
+    # Allow override via env var: TRANSPORT=stdio|http|sse
+    import os
+
+    transport = os.getenv("TRANSPORT", "stdio")
+
+    if transport == "sse":
+        # SSE transport for real-time streaming
+        mcp.run(
+            transport="sse",
+            host="0.0.0.0",
+            port=8000,
+            **host_config,
+        )
+    elif transport == "http":
+        # HTTP transport for web clients
+        mcp.run(
+            transport="http",
+            host="0.0.0.0",
+            port=8000,
+            **host_config,
+        )
+    else:
+        # Default: stdio for CLI/IDE integration (opencode, Claude Desktop, etc.)
+        mcp.run(
+            transport="stdio",
+        )
