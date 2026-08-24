@@ -7,7 +7,7 @@ RUN apt-get update -y && \
 
 # Install dependencies (locked, reproducible)
 WORKDIR /app
-COPY pyproject.toml uv.lock .python-version ./
+COPY pyproject.toml uv.lock .python-version README.md ./
 COPY src ./src
 COPY main.py ./
 COPY .env.example ./
