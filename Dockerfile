@@ -1,7 +1,8 @@
 FROM astral/uv:python3.13-trixie-slim
 
-# Install needed apt packages
+# Install needed apt packages and upgrade to patch vulnerabilities
 RUN apt-get update -y && \
+    apt-get upgrade -y --no-install-recommends && \
     apt-get install -y --no-install-recommends curl && \
     rm -rf /var/lib/apt/lists/*
 
