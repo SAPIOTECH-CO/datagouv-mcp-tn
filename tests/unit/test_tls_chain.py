@@ -55,9 +55,7 @@ def _make_cert(
 class TestExtractAiaIssuerUrls:
     def test_returns_ca_issuers_url_only(self):
         cert = _make_cert("leaf.example", aia_url="http://crt.example/intermediate.crt")
-        urls = tls_chain.extract_aia_issuer_urls(
-            cert.public_bytes(serialization.Encoding.DER)
-        )
+        urls = tls_chain.extract_aia_issuer_urls(cert.public_bytes(serialization.Encoding.DER))
         assert urls == ["http://crt.example/intermediate.crt"]
 
     def test_no_aia_extension(self):
@@ -205,7 +203,9 @@ class TestResolveChainContextUnit:
         """A fetched self-signed 'root' must never become a trust anchor."""
         tls_chain.reset_cache()
         root = _make_cert("Evil Root Example")
-        leaf = _make_cert("leaf.example", issuer_name=root.subject, aia_url="http://crt.example/root.p7c")
+        leaf = _make_cert(
+            "leaf.example", issuer_name=root.subject, aia_url="http://crt.example/root.p7c"
+        )
 
         async def fake_fetch(host, port=443):
             return leaf.public_bytes(serialization.Encoding.DER)

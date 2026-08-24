@@ -46,9 +46,7 @@ def extract_aia_issuer_urls(cert_der: bytes) -> list[str]:
     """Return the AIA 'CA Issuers' http(s) URLs advertised by a certificate."""
     cert = _load_cert(cert_der)
     try:
-        aia = cert.extensions.get_extension_for_oid(
-            ExtensionOID.AUTHORITY_INFORMATION_ACCESS
-        ).value
+        aia = cert.extensions.get_extension_for_oid(ExtensionOID.AUTHORITY_INFORMATION_ACCESS).value
     except x509.ExtensionNotFound:
         return []
     if not isinstance(aia, x509.AuthorityInformationAccess):

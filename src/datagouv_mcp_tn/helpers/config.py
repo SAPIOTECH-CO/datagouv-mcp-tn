@@ -15,7 +15,7 @@ class PortalSettings(BaseSettings):
     request_max_retries: int = 2
     retry_backoff_seconds: float = 0.5
     download_timeout: float = 120.0
-    max_download_size_mb: int = 50
+    max_download_size_mb: int = 100
     ssl_verify: bool = True
 
     model_config = SettingsConfigDict(
@@ -39,7 +39,7 @@ class Settings(BaseSettings):
     request_max_retries: int = 2
     retry_backoff_seconds: float = 0.5
     download_timeout: float = 120.0
-    max_download_size_mb: int = 50
+    max_download_size_mb: int = 100
     default_language: str = "fr"
     log_level: str = "INFO"
     enable_generative_ui: bool = False

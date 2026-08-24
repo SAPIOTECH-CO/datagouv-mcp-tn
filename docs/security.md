@@ -1,7 +1,7 @@
 # Security Scan Report
 
-**Date:** 2026-08-23  
-**Branch:** main  
+**Date:** 2026-08-23
+**Branch:** main
 **Scanner versions:**
 - Bandit: 1.9.4 (Python SAST)
 - Trivy: 0.74.0 (Docker/filesystem scanner)
@@ -54,6 +54,14 @@ trivy fs --format json --output trivy-deps-report.json .
 
 **Result:** ✅ **0 vulnerabilities found** in Python dependencies (uv.lock)
 
+### Automated Dependency Updates
+
+[Dependabot](https://github.com/dependabot) is configured in `.github/dependabot.yml`:
+- Weekly updates for Python dependencies (`pip` ecosystem)
+- Weekly updates for GitHub Actions
+
+This ensures dependencies stay current with security patches (R11).
+
 ## TLS Chain Repair (AIA fallback)
 
 Some portal hosts (e.g. `catalog.data.gov.tn`) omit the intermediate
@@ -69,6 +77,16 @@ Security properties:
   anchors (AIA is fetched over plain HTTP for some CAs).
 - Failures degrade to the original error — verification is never skipped.
 - Opt out with `TLS_AIA_FALLBACK=false`.
+
+## Data Retention Policy
+
+See [`docs/data-retention.md`](data-retention.md) for the complete policy.
+
+Summary:
+- **Logs**: 30 days retention (application + nginx)
+- **Metrics**: 90 days retention (Prometheus)
+- **Secrets**: Retained until explicitly revoked
+- **Temporary data**: Session lifetime only (in-memory, no disk)
 
 ## Quality Gates Summary
 

@@ -163,9 +163,7 @@ async def fetch_resource_bytes(url: str, *, max_mb: int | None = None) -> bytes:
         return await _stream_download(url, limit_mb=limit_mb)
     except httpx.ConnectError as exc:
         retryable = (
-            settings.tls_aia_fallback
-            and parsed.scheme == "https"
-            and is_cert_verify_error(exc)
+            settings.tls_aia_fallback and parsed.scheme == "https" and is_cert_verify_error(exc)
         )
         if not retryable:
             raise

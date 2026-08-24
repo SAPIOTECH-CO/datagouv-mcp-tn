@@ -1,5 +1,10 @@
 # datagouv-mcp-tn
 
+[![Python 3.13+](https://img.shields.io/badge/python-3.13%2B-blue)](https://www.python.org/)
+[![FastMCP](https://img.shields.io/badge/FastMCP-3.4%2B-green)](https://gofastmcp.com/)
+[![Coverage](https://img.shields.io/badge/coverage-90%25-brightgreen)](https://pytest-cov.readthedocs.io/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 A generic Model Context Protocol (MCP) server for CKAN open data portals, focused on the Tunisian ecosystem. Built with [FastMCP](https://gofastmcp.com).
 
 Supports **any CKAN portal** out of the box — add new data sources via environment variables without touching code.
@@ -24,7 +29,7 @@ powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | ie
 Clone the repository and install all dependencies into an isolated virtual environment:
 
 ```bash
-git clone https://github.com/<you>/datagouv-mcp-tn.git
+git clone https://github.com/SAPIOTECH-CO/datagouv-mcp-tn.git
 cd datagouv-mcp-tn
 
 uv sync          # creates .venv and installs dependencies from uv.lock
@@ -327,6 +332,56 @@ detection combines normalized extensions with magic-byte sniffing.
 
 2. Register it in `register_prompts()` at the bottom of the same file.
 
+## Production Deployment
+
+### Docker Compose (production)
+
+```bash
+# Start with nginx reverse proxy + SSL
+docker compose -f docker-compose.prod.yml up -d
+
+# View logs
+docker compose -f docker-compose.prod.yml logs -f
+```
+
+**Stack:**
+- `datagouv-mcp-tn` : application (HTTP on :8000)
+- `nginx` : reverse proxy + SSL termination (ports 80/443)
+- `loki` : log aggregation (optional)
+- `prometheus` : metrics (optional)
+
+### Nginx SSL Configuration
+
+1. Place your SSL certificates in `nginx/ssl/`:
+```bash
+nginx/ssl/
+├── fullchain.pem
+├── privkey.pem
+└── chain.pem
+```
+
+2. Generate self-signed certs for testing:
+```bash
+openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+  -keyout nginx/ssl/privkey.pem \
+  -out nginx/ssl/fullchain.pem \
+  -subj "/CN=localhost"
+```
+
+3. Configure DNS and reload nginx:
+```bash
+docker compose -f docker-compose.prod.yml exec nginx nginx -s reload
+```
+
+### CI/CD
+
+GitHub Actions pipeline (`.github/workflows/ci.yml`):
+1. **Quality gates** : ruff, mypy, bandit
+2. **Tests** : pytest with coverage + Codecov upload
+3. **Build** : Docker image build + push to GHCR
+4. **Scan** : Trivy vulnerability scan (SARIF → GitHub Security)
+5. **Deploy** : SSH deployment to production server
+
 ## Testing
 
 ```bash
@@ -390,6 +445,8 @@ Copy `.env.example` to `.env` and adjust. Key variables:
 
 All security features are **enabled by default** with production-safe values. Override via `.env` as needed.
 
+### Application Security
+
 | Layer | Implementation | Key Settings |
 | --- | --- | --- |
 | **Input validation** | FastMCP `strict_input_validation=True` + custom validators (`helpers/validators.py`) | `STRICT_INPUT_VALIDATION` |
@@ -398,6 +455,23 @@ All security features are **enabled by default** with production-safe values. Ov
 | **Host/Origin protection** | FastMCP built-in DNS rebinding guard (`host_origin_protection`) | `HOST_ORIGIN_PROTECTION`, `ALLOWED_HOSTS`, `ALLOWED_ORIGINS` |
 | **Log sanitization** | Automatic masking of secrets (API keys, tokens, passwords) and PII (emails, IPs, user IDs) in all log records | `LOG_SANITIZATION_ENABLED` |
 
+### SAST & Scanning
+
+| Tool | Scope | Status |
+| --- | --- | --- |
+| **Bandit** | Python SAST | Configured in `.pre-commit-config.yaml` |
+| **Trivy** | Docker image + filesystem | Used in CI/CD pipeline |
+| **defusedxml** | XML parsing | Replaced `xml.etree.ElementTree` |
+
+See `docs/security.md` for the full security scan report.
+
+### Production Hardening
+
+- **Docker**: Non-root user (`appuser`)
+- **Nginx**: TLS 1.2/1.3, HSTS, security headers
+- **Secrets**: Docker secrets for API keys
+- **Network**: Internal bridge network, no exposed ports except 80/443
+
 ## Docker
 
 Build and run locally with Docker Compose:
@@ -405,6 +479,14 @@ Build and run locally with Docker Compose:
 ```bash
 docker compose up --build
 ```
+
+### Documentation
+
+- [Architecture](docs/architecture.md) — Technical architecture overview
+- [API Reference](docs/api_reference.md) — Complete tool, resource, and prompt reference
+- [Client Setup](docs/client_setup.md) — Claude Desktop, OpenCode, ChatGPT, Cursor
+- [Contribution Guide](docs/contribution.md) — Development workflow, testing, adding tools/portals
+- [Security Report](docs/security.md) — Bandit/Trivy scans, remediated issues
 
 The container serves the streamable HTTP transport on `0.0.0.0:${FASTMCP_PORT:-8000}` (`/mcp` + `/health`), with a built-in healthcheck. Configure via env vars in `docker-compose.yml` or a `.env` file next to it.
 

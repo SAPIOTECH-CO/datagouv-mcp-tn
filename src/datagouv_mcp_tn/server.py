@@ -23,6 +23,17 @@ from datagouv_mcp_tn.tools import register_tools
 _settings = get_settings()
 configure_logging(_settings.log_level)
 
+# --- Prometheus metrics (R05 performance monitoring) ---
+try:
+    from prometheus_fastapi_instrumentator import Instrumentator
+
+    _metrics_instrumentator: Instrumentator | None = Instrumentator(
+        should_group_status_codes=False,
+        should_ignore_untemplated=True,
+    )
+except ImportError:  # pragma: no cover - optional dependency
+    _metrics_instrumentator = None
+
 
 @asynccontextmanager
 async def lifespan(app):
@@ -118,7 +129,13 @@ if _settings.enable_generative_ui:
 # Export a pre-configured HTTP app for uvicorn/fastmcp run
 # This applies CORS + Host/Origin protection
 def _create_http_app():
-    return apply_security_to_http_app(mcp)
+    app = apply_security_to_http_app(mcp)
+
+    # Mount Prometheus metrics endpoint (R05)
+    if _metrics_instrumentator is not None:
+        _metrics_instrumentator.instrument(app).expose(app, include_in_schema=False)  # type: ignore[union-attr]
+
+    return app
 
 
 # For direct uvicorn usage: uvicorn datagouv_mcp_tn.server:app
