@@ -54,6 +54,22 @@ trivy fs --format json --output trivy-deps-report.json .
 
 **Result:** ✅ **0 vulnerabilities found** in Python dependencies (uv.lock)
 
+## TLS Chain Repair (AIA fallback)
+
+Some portal hosts (e.g. `catalog.data.gov.tn`) omit the intermediate
+certificate from their TLS chain, breaking standard verification. Resource
+downloads retry once by fetching the missing intermediates from the
+certificate's AIA "CA Issuers" URLs (`helpers/tls_chain.py`).
+
+Security properties:
+
+- The assembled chain must still anchor to a root in the local trust store;
+  a verified probe handshake gates every recovered context.
+- Self-signed certificates discovered via AIA are never added as trust
+  anchors (AIA is fetched over plain HTTP for some CAs).
+- Failures degrade to the original error — verification is never skipped.
+- Opt out with `TLS_AIA_FALLBACK=false`.
+
 ## Quality Gates Summary
 
 | Gate | Tool | Status |

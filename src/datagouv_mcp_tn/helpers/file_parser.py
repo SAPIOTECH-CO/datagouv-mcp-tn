@@ -10,6 +10,7 @@ from __future__ import annotations
 import io
 import json
 import logging
+import ssl
 from dataclasses import dataclass, field
 from typing import Any, Literal, cast
 from urllib.parse import urlparse
@@ -17,6 +18,7 @@ from urllib.parse import urlparse
 import httpx
 
 from datagouv_mcp_tn.helpers.config import get_settings
+from datagouv_mcp_tn.helpers.tls_chain import is_cert_verify_error, resolve_chain_context
 
 logger = logging.getLogger(__name__)
 
@@ -145,13 +147,41 @@ def explain_unsupported(resource: dict[str, Any]) -> str:
 
 
 async def fetch_resource_bytes(url: str, *, max_mb: int | None = None) -> bytes:
-    """Stream-download a resource URL enforcing scheme and size caps."""
+    """Stream-download a resource URL enforcing scheme and size caps.
+
+    If TLS verification fails because the server omits intermediate
+    certificates, retries once with intermediates recovered via AIA
+    (still fully verified against system roots).
+    """
     settings = get_settings()
     limit_mb = max_mb if max_mb is not None else settings.max_download_size_mb
     parsed = urlparse(url)
     if parsed.scheme not in ("http", "https"):
         raise ValueError(f"Unsupported URL scheme '{parsed.scheme}': only http(s) is allowed.")
 
+    try:
+        return await _stream_download(url, limit_mb=limit_mb)
+    except httpx.ConnectError as exc:
+        retryable = (
+            settings.tls_aia_fallback
+            and parsed.scheme == "https"
+            and is_cert_verify_error(exc)
+        )
+        if not retryable:
+            raise
+        host = parsed.hostname or ""
+        context = await resolve_chain_context(host)
+        if context is None:
+            raise
+        logger.info("Retrying download from %s with AIA-recovered chain", host)
+        return await _stream_download(url, limit_mb=limit_mb, verify=context)
+
+
+async def _stream_download(
+    url: str, *, limit_mb: int, verify: bool | ssl.SSLContext = True
+) -> bytes:
+    """Stream a GET request enforcing the size cap; ``verify`` may be an SSLContext."""
+    settings = get_settings()
     limit_bytes = limit_mb * 1024 * 1024
     chunks: list[bytes] = []
     received = 0
@@ -159,6 +189,7 @@ async def fetch_resource_bytes(url: str, *, max_mb: int | None = None) -> bytes:
         follow_redirects=True,
         timeout=settings.download_timeout,
         headers={"User-Agent": "datagouv-mcp-tn"},
+        verify=verify,
     ) as client:
         async with client.stream("GET", url) as response:
             response.raise_for_status()

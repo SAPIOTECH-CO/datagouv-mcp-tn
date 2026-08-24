@@ -47,6 +47,10 @@ class Settings(BaseSettings):
     # --- Security settings ---
     strict_input_validation: bool = True
 
+    # Retry downloads with AIA-recovered intermediates when a server omits
+    # them from its TLS chain (verification still anchors to system roots)
+    tls_aia_fallback: bool = True
+
     # Rate limiting (SlidingWindowRateLimitingMiddleware)
     rate_limit_enabled: bool = True
     rate_limit_max_requests: int = 100
