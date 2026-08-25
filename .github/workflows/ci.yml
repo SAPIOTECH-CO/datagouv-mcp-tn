@@ -76,7 +76,7 @@ jobs:
         run: uv run pytest tests/unit tests/integration -v --cov=src/datagouv_mcp_tn --cov-report=xml
 
       - name: Upload coverage report
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v7
         with:
           files: ./coverage.xml
           flags: unittests
