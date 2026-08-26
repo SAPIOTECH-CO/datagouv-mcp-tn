@@ -1,8 +1,14 @@
 """Test configuration and fixtures for isolated FastMCP instances."""
 
+import sys
+from pathlib import Path
+
 import pytest
 from fastmcp import Client as FastMCPClient
 from fastmcp import FastMCP
+
+# Ensure tests/_factories.py is importable from all test subdirectories.
+sys.path.insert(0, str(Path(__file__).parent))
 
 from datagouv_mcp_tn.helpers.config import Settings
 from datagouv_mcp_tn.helpers.logging_config import configure_logging

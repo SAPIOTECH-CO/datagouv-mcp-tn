@@ -14,12 +14,12 @@ from datagouv_mcp_tn.portals import (
 )
 
 __all__ = [
-    "Portal",
     "Depends",
-    "get_portal",
+    "Portal",
+    "get_default_language",
     "get_default_portal",
     "get_default_portal_key",
-    "get_default_language",
+    "get_portal",
     "get_portal_or_default",
     "list_portals",
 ]

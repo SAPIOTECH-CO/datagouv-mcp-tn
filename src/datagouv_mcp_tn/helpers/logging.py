@@ -1,21 +1,9 @@
-import functools
-import logging
+"""Re-export logging utilities from the canonical module.
 
-MAIN_LOGGER_NAME = "datagouv_mcp_tn"
+All project code should import from this module or directly from
+``logging_config``. This file exists for backward compatibility.
+"""
 
-logger = logging.getLogger(MAIN_LOGGER_NAME)
+from datagouv_mcp_tn.helpers.logging_config import MAIN_LOGGER_NAME, log_tool, logger
 
-
-def log_tool(func):
-    """Log tool invocations and failures with the shared project logger."""
-
-    @functools.wraps(func)
-    async def wrapper(*args, **kwargs):
-        logger.info("Tool '%s' called", func.__name__)
-        try:
-            return await func(*args, **kwargs)
-        except Exception:
-            logger.exception("Tool '%s' failed", func.__name__)
-            raise
-
-    return wrapper
+__all__ = ["MAIN_LOGGER_NAME", "log_tool", "logger"]

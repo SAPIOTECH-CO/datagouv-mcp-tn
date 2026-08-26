@@ -1,4 +1,3 @@
-import logging
 from typing import Any
 
 from fastmcp import FastMCP
@@ -11,15 +10,13 @@ from datagouv_mcp_tn.helpers.i18n import (
     resolve_language,
     translate,
 )
-from datagouv_mcp_tn.helpers.logging import MAIN_LOGGER_NAME, log_tool
+from datagouv_mcp_tn.helpers.logging import log_tool
 from datagouv_mcp_tn.helpers.mcp_tool_defaults import READ_ONLY_EXTERNAL_API_TOOL
 from datagouv_mcp_tn.helpers.prefab_views import search_results_table
 from datagouv_mcp_tn.helpers.query_cleaner import clean_search_query
 from datagouv_mcp_tn.helpers.validators import validate_search_args
 from datagouv_mcp_tn.models.common import PaginationInfo
 from datagouv_mcp_tn.portals import get_portal
-
-logger = logging.getLogger(MAIN_LOGGER_NAME)
 
 
 def register_search_datasets_tool(mcp: FastMCP) -> None:

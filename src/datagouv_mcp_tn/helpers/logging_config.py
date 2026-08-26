@@ -11,6 +11,7 @@ Security features:
 - Configurable via settings (log_sanitization_enabled, log_mask_patterns)
 """
 
+import functools
 import logging
 import re
 import sys
@@ -20,6 +21,9 @@ from pythonjsonlogger.json import JsonFormatter
 from datagouv_mcp_tn.helpers.config import get_settings
 
 MAIN_LOGGER_NAME = "datagouv_mcp_tn"
+
+# Canonical logger instance shared across the project.
+logger = logging.getLogger(MAIN_LOGGER_NAME)
 
 # Loggers whose records are captured and re-emitted as JSON.
 _CAPTURED_LOGGERS = (
@@ -223,3 +227,18 @@ UVICORN_LOGGING_CONFIG: dict = {
         for name in _CAPTURED_LOGGERS
     },
 }
+
+
+def log_tool(func):
+    """Log tool invocations and failures with the shared project logger."""
+
+    @functools.wraps(func)
+    async def wrapper(*args, **kwargs):
+        logger.info("Tool '%s' called", func.__name__)
+        try:
+            return await func(*args, **kwargs)
+        except Exception:
+            logger.exception("Tool '%s' failed", func.__name__)
+            raise
+
+    return wrapper

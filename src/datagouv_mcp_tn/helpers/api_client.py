@@ -384,12 +384,3 @@ async def list_dataset_resources(
     portal = get_portal(portal_key)
     pkg = await _call_action(portal.key, "package_show", params={"id": dataset_id})
     return pkg.get("resources", [])
-
-
-async def get_group_details(
-    group_id: str,
-    portal_key: str | None = None,
-) -> dict[str, Any]:
-    """Fetch group details."""
-    portal = get_portal(portal_key)
-    return await _call_action(portal.key, "group_show", params={"id": group_id})

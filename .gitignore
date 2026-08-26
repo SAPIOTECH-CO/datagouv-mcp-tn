@@ -15,3 +15,11 @@ dist/
 
 # Environment
 .env
+
+# Test / coverage artifacts
+.coverage
+coverage.xml
+bandit-report.json
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/

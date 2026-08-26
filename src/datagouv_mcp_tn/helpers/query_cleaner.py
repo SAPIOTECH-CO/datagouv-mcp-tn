@@ -44,8 +44,6 @@ STOP_WORDS = frozenset(
     }
 )
 
-_WORD_SPLIT = re.compile(r"\s+")
-
 # Common French/Arabic synonyms for open data terms (R12 query expansion)
 _SYNONYMS = {
     "population": ["habitants", "recensement", "démographie"],
